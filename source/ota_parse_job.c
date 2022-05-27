@@ -6,6 +6,48 @@
 #include "ota_base64_private.h"
 #include "ota_parse_job_private.h"
 
+/**
+ * @brief Decode the base64 encoded file signature key from the job document and store it in file context.
+ *
+ * @param[in] pValueInJson Pointer to the value of the key in JSON buffer.
+ * @param[in] valueLength Length of the value.
+ * @param[out] pParamAdd Pointer to the location where the value is stored.
+ * @return DocParseErr_t DocParseErrNone if successful, JSON document parser errors.
+ */
+static DocParseErr_t decodeAndStoreKey( const char * pValueInJson,
+                                        size_t valueLength,
+                                        void * pParamAdd );
+
+/**
+ * @brief Extract the value from json and store it into the allocated memory.
+ *
+ * @param[in] pKey Name of the Key to extract.
+ * @param[in] pValueInJson Pointer to the value of the key in JSON buffer.
+ * @param[in] valueLength Length of the value.
+ * @param[out] pParamAdd Pointer to the location where the value is stored.
+ * @param[in] pParamSizeAdd Size required to store the param.
+ * @return DocParseErr_t DocParseErrNone if successful, JSON document parser errors.
+ */
+static DocParseErr_t extractAndStoreArray(
+                                        OtaMallocInterface_t * pMallocInterface,
+                                         const char * pKey,
+                                           const char * pValueInJson,
+                                           size_t valueLength,
+                                           void * pParamAdd,
+                                           uint32_t * pParamSizeAdd );
+
+
+
+/**
+ * @brief Check if all the required parameters for job document are extracted from the JSON.
+ *
+ * @param[in] pModelParam Structure to store the details of keys and where to store them.
+ * @param[in] pDocModel Details of expected parameters in the job doc.
+ * @return DocParseErr_t DocParseErrNone if successful, JSON document parser errors.
+ */
+static DocParseErr_t verifyRequiredParamsExtracted( const JsonDocParam_t * pModelParam,
+                                                    const JsonDocModel_t * pDocModel );
+
 /* Validate JSON document and the DocModel*/
  DocParseErr_t validateJSON( const char * pJson,
                                    uint32_t messageLength )
@@ -221,7 +263,7 @@ static DocParseErr_t verifyRequiredParamsExtracted( const JsonDocParam_t * pMode
 
 /* Decode the base64 encoded file signature key from the job document and store it in file context*/
 
- DocParseErr_t decodeAndStoreKey( const char * pValueInJson,
+static DocParseErr_t decodeAndStoreKey( const char * pValueInJson,
                                         size_t valueLength,
                                         void * pParamAdd )
 {
@@ -266,7 +308,7 @@ static DocParseErr_t verifyRequiredParamsExtracted( const JsonDocParam_t * pMode
 
 /* Extract the value from json and store it into the allocated memory. */
 
- DocParseErr_t extractAndStoreArray(
+ static DocParseErr_t extractAndStoreArray(
                                         OtaMallocInterface_t * pMallocInterface,
                                          const char * pKey,
                                            const char * pValueInJson,
