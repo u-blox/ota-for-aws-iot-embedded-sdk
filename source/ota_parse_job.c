@@ -19,6 +19,20 @@ static DocParseErr_t decodeAndStoreKey( const char * pValueInJson,
                                         void * pParamAdd );
 
 /**
+ * @brief Store the parameter from the json to the offset specified by the document model.
+ *
+ * @param[in] docParam Structure to store the details of keys and where to store them.
+ * @param[in] pContextBase Start of file context.
+ * @param[in] pValueInJson Pointer to the value of the key in JSON buffer.
+ * @param[in] valueLength Length of the value.
+ * @return DocParseErr_t DocParseErrNone if successful, JSON document parser errors.
+ */
+DocParseErr_t extractParameter( JsonDocParam_t docParam,
+                                       const OtaMallocInterface_t * pMallocInterface,
+                                       void * pContextBase,
+                                       const char * pValueInJson,
+                                       size_t valueLength );
+/**
  * @brief Extract the value from json and store it into the allocated memory.
  *
  * @param[in] pKey Name of the Key to extract.
@@ -29,7 +43,7 @@ static DocParseErr_t decodeAndStoreKey( const char * pValueInJson,
  * @return DocParseErr_t DocParseErrNone if successful, JSON document parser errors.
  */
 static DocParseErr_t extractAndStoreArray(
-                                        OtaMallocInterface_t * pMallocInterface,
+                                        const OtaMallocInterface_t * pMallocInterface,
                                          const char * pKey,
                                            const char * pValueInJson,
                                            size_t valueLength,
@@ -118,14 +132,12 @@ static DocParseErr_t verifyRequiredParamsExtracted( const JsonDocParam_t * pMode
  DocParseErr_t parseJSONbyModel( const char * pJson,
                                        uint32_t messageLength,
                                        JsonDocModel_t * pDocModel,
-                                       OtaMallocInterface_t * pMallocInterface )
+                                       const OtaMallocInterface_t * pMallocInterface )
 {
     const JsonDocParam_t * pModelParam = NULL;
     DocParseErr_t err;
     JSONStatus_t result;
     uint16_t paramIndex = 0;
-    const char * pFileParams = NULL;
-    uint32_t fileParamsLength = 0;
 
     LogDebug( ( "JSON received: %s", pJson ) );
 
@@ -144,12 +156,6 @@ static DocParseErr_t verifyRequiredParamsExtracted( const JsonDocParam_t * pMode
         size_t valueLength = 0;
         result = JSON_SearchConst( pJson, messageLength, pQueryKey, queryKeyLength, &pValueInJson, &valueLength, NULL );
 
-        /* If not found in pJSon search for the key in FileParameters JSON*/
-        if( ( result != JSONSuccess ) && ( pFileParams != NULL ) )
-        {
-            result = JSON_SearchConst( pFileParams, fileParamsLength, pQueryKey, queryKeyLength, &pValueInJson, &valueLength, NULL );
-        }
-
         if( result == JSONSuccess )
         {
             /* Mark parameter as received in the bitmap. */
@@ -159,11 +165,6 @@ static DocParseErr_t verifyRequiredParamsExtracted( const JsonDocParam_t * pMode
             {
                 /* Do nothing if we don't need to store the parameter */
                 continue;
-            }
-            else if( OTA_STORE_NESTED_JSON == pModelParam[ paramIndex ].pDestOffset )
-            {
-                pFileParams = pValueInJson + 1;
-                fileParamsLength = ( uint32_t ) valueLength - 2U;
             }
             else
             {
@@ -309,7 +310,7 @@ static DocParseErr_t decodeAndStoreKey( const char * pValueInJson,
 /* Extract the value from json and store it into the allocated memory. */
 
  static DocParseErr_t extractAndStoreArray(
-                                        OtaMallocInterface_t * pMallocInterface,
+                                        const OtaMallocInterface_t * pMallocInterface,
                                          const char * pKey,
                                            const char * pValueInJson,
                                            size_t valueLength,
@@ -378,7 +379,7 @@ static DocParseErr_t decodeAndStoreKey( const char * pValueInJson,
 /* Store the parameter from the json to the offset specified by the document model. */
 
  DocParseErr_t extractParameter( JsonDocParam_t docParam,
-                                   OtaMallocInterface_t * pMallocInterface,
+                                   const OtaMallocInterface_t * pMallocInterface,
                                        void * pContextBase,
                                        const char * pValueInJson,
                                        size_t valueLength )

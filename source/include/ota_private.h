@@ -79,7 +79,6 @@
 #define OTA_JOB_PARAM_REQUIRED      ( bool ) true                                                               /*!< @brief Used to denote a required document model parameter. */
 #define OTA_JOB_PARAM_OPTIONAL      ( bool ) false                                                              /*!< @brief Used to denote an optional document model parameter. */
 #define OTA_DONT_STORE_PARAM        0xffff                                                                      /*!< @brief If destOffset in the model is 0xffffffff, do not store the value. */
-#define OTA_STORE_NESTED_JSON       0x1fffU                                                                     /*!< @brief Store the reference to a nested JSON in a separate pointer */
 #define OTA_DATA_BLOCK_SIZE         ( ( 1U << otaconfigLOG2_FILE_BLOCK_SIZE ) + OTA_REQUEST_URL_MAX_SIZE + 30 ) /*!< @brief Header is 19 bytes.*/
 /** @} */
 
@@ -100,7 +99,7 @@
  * @brief Number of parameters in the job document.
  *
  */
-#define OTA_NUM_JOB_PARAMS          ( 21 )
+#define OTA_NUM_JOB_PARAMS          ( 20 )
 
 /**
  * @brief Maximum size of the Job ID.
@@ -147,14 +146,14 @@
 #define OTA_JSON_PROTOCOLS_KEY          OTA_JSON_OTA_UNIT_KEY OTA_JSON_SEPARATOR "protocols"       /*!< @brief Protocols over which the download can take place. */
 #define OTA_JSON_FILE_GROUP_KEY         OTA_JSON_OTA_UNIT_KEY OTA_JSON_SEPARATOR "files"           /*!< @brief Parameters for specifying file configurations. */
 #define OTA_JSON_STREAM_NAME_KEY        OTA_JSON_OTA_UNIT_KEY OTA_JSON_SEPARATOR "streamname"      /*!< @brief Name of the stream used for download. */
-#define OTA_JSON_FILE_PATH_KEY          "filepath"                                                 /*!< @brief Path to store the image on the device. */
-#define OTA_JSON_FILE_SIZE_KEY          "filesize"                                                 /*!< @brief Size of the file to be downloaded. */
-#define OTA_JSON_FILE_ID_KEY            "fileid"                                                   /*!< @brief Used to identify the file in case of multiple file downloads. */
-#define OTA_JSON_FILE_ATTRIBUTE_KEY     "attr"                                                     /*!< @brief Additional file attributes. */
-#define OTA_JSON_FILE_CERT_NAME_KEY     "certfile"                                                 /*!< @brief Location of the certificate on the device to find code signing. */
-#define OTA_JSON_UPDATE_DATA_URL_KEY    "update_data_url"                                          /*!< @brief S3 bucket presigned url to fetch the image from . */
-#define OTA_JSON_AUTH_SCHEME_KEY        "auth_scheme"                                              /*!< @brief Authentication scheme for downloading a the image over HTTP. */
-#define OTA_JSON_FILETYPE_KEY           "fileType"                                                 /*!< @brief Used to identify the file in case of multi file type support. */
+#define OTA_JSON_FILE_PATH_KEY          OTA_JSON_FILE_GROUP_KEY "[0].filepath"                     /*!< @brief Path to store the image on the device. */
+#define OTA_JSON_FILE_SIZE_KEY          OTA_JSON_FILE_GROUP_KEY "[0].filesize"                     /*!< @brief Size of the file to be downloaded. */
+#define OTA_JSON_FILE_ID_KEY            OTA_JSON_FILE_GROUP_KEY "[0].fileid"                       /*!< @brief Used to identify the file in case of multiple file downloads. */
+#define OTA_JSON_FILE_ATTRIBUTE_KEY     OTA_JSON_FILE_GROUP_KEY "[0].attr"                         /*!< @brief Additional file attributes. */
+#define OTA_JSON_FILE_CERT_NAME_KEY     OTA_JSON_FILE_GROUP_KEY "[0].certfile"                     /*!< @brief Location of the certificate on the device to find code signing. */
+#define OTA_JSON_UPDATE_DATA_URL_KEY    OTA_JSON_FILE_GROUP_KEY "[0].update_data_url"              /*!< @brief S3 bucket presigned url to fetch the image from . */
+#define OTA_JSON_AUTH_SCHEME_KEY        OTA_JSON_FILE_GROUP_KEY "[0].auth_scheme"                  /*!< @brief Authentication scheme for downloading a the image over HTTP. */
+#define OTA_JSON_FILETYPE_KEY           OTA_JSON_FILE_GROUP_KEY "[0].fileType"                     /*!< @brief Used to identify the file in case of multi file type support. */
 /** @} */
 
 /**
