@@ -3065,19 +3065,6 @@ void test_OTA_setDataInterface_InvalidInput( void )
 /* ========================================================================== */
 
 
-void test_OTA_parseJobFailsNullJsonDocument()
-{
-    OtaFileContext_t * pContext = NULL;
-    bool updateJob = false;
-
-    otaInitDefault();
-    pContext = parseJobDoc( JOB_DOC_A, strlen( JOB_DOC_A ), &updateJob );
-
-    TEST_ASSERT_NULL( pContext );
-    TEST_ASSERT_EQUAL( false, updateJob );
-}
-
-
 void test_OTA_validateDataBlockInputSize()
 {
     OtaFileContext_t fileContext = { 0 };
