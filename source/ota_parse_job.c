@@ -9,7 +9,7 @@
 #include "ota_parse_job_private.h"
 
 
-DocParseErr_t otajson_SearchField(const char * pJson,
+DocParseErr_t otajson_getFieldValue(const char * pJson,
                                 size_t jsonLength,
                                 const char * key,
                                 size_t keyLength,
@@ -55,7 +55,7 @@ DocParseErr_t otajson_SearchField(const char * pJson,
 
 }
 
-DocParseErr_t otajson_SearchObject(const char * pJson,
+DocParseErr_t otajson_parseFieldObject(const char * pJson,
                                 size_t jsonLength,
                                 const char * key,
                                 size_t keyLength,
@@ -63,10 +63,10 @@ DocParseErr_t otajson_SearchObject(const char * pJson,
                                 const char ** ppOut,
                                 size_t * pOutLength)
 {
-    return otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONObject, ppOut, pOutLength);
+    return otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONObject, ppOut, pOutLength);
 }
 
-DocParseErr_t otajson_SearchStringTerminate(const char * pJson,
+DocParseErr_t otajson_parseFieldStringTerminate(const char * pJson,
                                 size_t jsonLength,
                                 const char * key,
                                 size_t keyLength,
@@ -78,7 +78,7 @@ DocParseErr_t otajson_SearchStringTerminate(const char * pJson,
     const char * pValue;
     size_t valueLength;
 
-    err = otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
+    err = otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
     if (err == DocParseErrNone && pOut != NULL)
     {
         /* The output is expecting a NUL terminated string, so the raw value must be at least one byte smaller. */
@@ -96,7 +96,7 @@ DocParseErr_t otajson_SearchStringTerminate(const char * pJson,
     return err;
 }
 
-DocParseErr_t otajson_SearchStringTerminateRealloc(const char * pJson,
+DocParseErr_t otajson_parseFieldStringTerminateRealloc(const char * pJson,
                                 size_t jsonLength,
                                 const char * key,
                                 size_t keyLength,
@@ -115,7 +115,7 @@ DocParseErr_t otajson_SearchStringTerminateRealloc(const char * pJson,
         *ppOut = NULL;
     }
 
-    err = otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
+    err = otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
     if (err == DocParseErrNone)
     {
         pOut = pMallocInterface->malloc(valueLength + 1);
@@ -134,7 +134,7 @@ DocParseErr_t otajson_SearchStringTerminateRealloc(const char * pJson,
     return err;
 }
 
-DocParseErr_t otajson_SearchStringTerminateMaybeRealloc(const char * pJson,
+DocParseErr_t otajson_parseFieldStringTerminateMaybeRealloc(const char * pJson,
                                 size_t jsonLength,
                                 const char * key,
                                 size_t keyLength,
@@ -147,21 +147,21 @@ DocParseErr_t otajson_SearchStringTerminateMaybeRealloc(const char * pJson,
     if (outLength != 0)
     {
         assert(*ppOut != NULL);
-        err = otajson_SearchStringTerminate(
+        err = otajson_parseFieldStringTerminate(
             pJson, jsonLength, key, keyLength, required, *ppOut, outLength);
     }
     else
     {
         /* An output buffer length of zero means the output string is dynamically
          * allocated on the heap. */
-        err = otajson_SearchStringTerminateRealloc(
+        err = otajson_parseFieldStringTerminateRealloc(
             pJson, jsonLength, key, keyLength, required, pMallocInterface, ppOut);
     }
 
     return err;
 }
 
-DocParseErr_t Uint32FromString(const char * str, size_t strLength, uint32_t * out)
+DocParseErr_t otajson_uint32FromString(const char * str, size_t strLength, uint32_t * out)
 {
     DocParseErr_t err = DocParseErrNone;
     uint32_t result = 0;
@@ -196,7 +196,7 @@ DocParseErr_t Uint32FromString(const char * str, size_t strLength, uint32_t * ou
     return err;
 }
 
-DocParseErr_t otajson_SearchUint32(const char * pJson,
+DocParseErr_t otajson_parseFieldUint32(const char * pJson,
                                 size_t jsonLength,
                                 const char * key,
                                 size_t keyLength,
@@ -207,11 +207,11 @@ DocParseErr_t otajson_SearchUint32(const char * pJson,
     const char * pValue;
     size_t valueLength;
 
-    err = otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONNumber, &pValue, &valueLength);
+    err = otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONNumber, &pValue, &valueLength);
 
     if (err == DocParseErrNone)
     {
-        err = Uint32FromString(pValue, valueLength, out);
+        err = otajson_uint32FromString(pValue, valueLength, out);
     }
 
     return err;
@@ -222,7 +222,7 @@ bool otajson_isoctaldigit(char c)
     return isdigit(c) && c != '8' && c != '9';
 }
 
-DocParseErr_t Uint32FromStringLikeStrtoul(const char * str, size_t strLength, uint32_t * out)
+DocParseErr_t otajson_uint32FromStringLikeStrtoul(const char * str, size_t strLength, uint32_t * out)
 {
     DocParseErr_t err = DocParseErrNone;
     uint32_t result = 0;
@@ -418,7 +418,7 @@ DocParseErr_t Uint32FromStringLikeStrtoul(const char * str, size_t strLength, ui
     return err;
 }
 
-DocParseErr_t otajson_SearchUint32InString(const char * pJson,
+DocParseErr_t otajson_parseFieldUint32InString(const char * pJson,
                                 size_t jsonLength,
                                 const char * key,
                                 size_t keyLength,
@@ -429,7 +429,7 @@ DocParseErr_t otajson_SearchUint32InString(const char * pJson,
     const char * pValue;
     size_t valueLength;
 
-    err = otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
+    err = otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
 
     if (err == DocParseErrNone)
     {
@@ -437,13 +437,13 @@ DocParseErr_t otajson_SearchUint32InString(const char * pJson,
          * Previous implementations used strtoul to parse this string. This function must match its
          * behavior.
          */
-        err = Uint32FromStringLikeStrtoul(pValue, valueLength, out);
+        err = otajson_uint32FromStringLikeStrtoul(pValue, valueLength, out);
     }
 
     return err;
 }
 
-DocParseErr_t otajson_SearchSignature(const char * pJson,
+DocParseErr_t otajson_parseFieldSignature(const char * pJson,
                                         size_t jsonLength,
                                         const char * key,
                                         size_t keyLength,
@@ -456,7 +456,7 @@ DocParseErr_t otajson_SearchSignature(const char * pJson,
     size_t decodedLength;
 
     /* Note: signatures are always optional. */
-    err = otajson_SearchField(
+    err = otajson_getFieldValue(
         pJson, jsonLength, key, keyLength, OTA_JOB_PARAM_OPTIONAL, JSONString, &pValue, &valueLength);
 
     if (err == DocParseErrNone)
@@ -492,7 +492,7 @@ DocParseErr_t otajson_SearchSignature(const char * pJson,
     return err;
 }
 
-DocParseErr_t otajson_SearchProtocols(const char * pJson,
+DocParseErr_t otajson_parseFieldProtocols(const char * pJson,
                                         size_t jsonLength,
                                         const char * key,
                                         size_t keyLength,
@@ -512,7 +512,7 @@ DocParseErr_t otajson_SearchProtocols(const char * pJson,
     bool supportsHttp = false;
 
     /* Note: the protocol array is always required. */
-    err = otajson_SearchField(
+    err = otajson_getFieldValue(
         pJson, jsonLength, key, keyLength, OTA_JOB_PARAM_REQUIRED, JSONArray, &pProtocols, &protocolsLength);
 
     if (err == DocParseErrNone)
@@ -609,20 +609,20 @@ DocParseErr_t parseOtaDocument( const char * pJson,
      */
 
     /* "clientToken", an optional string that isn't used. */
-    err = otajson_SearchStringTerminate(
+    err = otajson_parseFieldStringTerminate(
         pJson, messageLength, CONST_KEY(JOBKEY_CLIENT_TOKEN), OTA_JOB_PARAM_OPTIONAL, NULL, 0);
 
     /* "timestamp", an optional UInt32 that isn't used. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchUint32(
+        err = otajson_parseFieldUint32(
             pJson, messageLength, CONST_KEY(JOBKEY_TIMESTAMP), OTA_JOB_PARAM_OPTIONAL, NULL);
     }
 
     /* "execution", a required object. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchObject(
+        err = otajson_parseFieldObject(
             pJson, messageLength, CONST_KEY(JOBKEY_EXECUTION), OTA_JOB_PARAM_REQUIRED, &pExecutionJson, &executionJsonLength);
     }
 
@@ -634,7 +634,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         assert(pExecutionJson != NULL);
-        err = otajson_SearchStringTerminate(
+        err = otajson_parseFieldStringTerminate(
             pExecutionJson, executionJsonLength, CONST_KEY(JOBKEY_EXECUTION_JOB_ID), OTA_JOB_PARAM_REQUIRED,
             (char *)pFileContext->pJobName, pFileContext->jobNameMaxSize);
     }
@@ -642,7 +642,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.statusDetails", an optional object */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchObject(
+        err = otajson_parseFieldObject(
             pExecutionJson, executionJsonLength, CONST_KEY(JOBKEY_EXECUTION_STATUS_DETAILS), OTA_JOB_PARAM_OPTIONAL,
             &pStatusDetailsJson, &statusDetailsJsonLength);
     }
@@ -650,7 +650,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota", a required object */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchObject(
+        err = otajson_parseFieldObject(
             pExecutionJson, executionJsonLength, CONST_KEY(JOBKEY_EXECUTION_JOB_DOC_AFR_OTA), OTA_JOB_PARAM_REQUIRED,
             &pAfrOtaJson, &afrOtaJsonLength);
     }
@@ -664,7 +664,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
          * The file context interprets the presence of this string as `true`, and defaults to false. */
         if (err == DocParseErrNone || err == DocParseErrNotFound)
         {
-            err = otajson_SearchStringTerminate(
+            err = otajson_parseFieldStringTerminate(
                 pStatusDetailsJson, statusDetailsJsonLength, CONST_KEY(JOBKEY_STATUS_DETAILS_SELF_TEST), OTA_JOB_PARAM_OPTIONAL, NULL, 0);
             if (err == DocParseErrNone)
             {
@@ -675,14 +675,14 @@ DocParseErr_t parseOtaDocument( const char * pJson,
         /* "execution.statusDetails.updatedBy", an optional UInt32 */
         if (err == DocParseErrNone || err == DocParseErrNotFound)
         {
-            err = otajson_SearchUint32(
+            err = otajson_parseFieldUint32(
                 pStatusDetailsJson, statusDetailsJsonLength, CONST_KEY(JOBKEY_STATUS_DETAILS_UPDATED_BY), OTA_JOB_PARAM_OPTIONAL,
                 &pFileContext->updaterVersion);
 
             /* "updatedBy" is for some reason sometimes wrapped in a string. */
             if (err == DocParseErrFieldTypeMismatch)
             {
-                err = otajson_SearchUint32InString(
+                err = otajson_parseFieldUint32InString(
                     pStatusDetailsJson, statusDetailsJsonLength, CONST_KEY(JOBKEY_STATUS_DETAILS_UPDATED_BY), OTA_JOB_PARAM_OPTIONAL,
                     &pFileContext->updaterVersion);
             }
@@ -696,7 +696,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota.streamname", an optional possibly dynamic string. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchStringTerminateMaybeRealloc(
+        err = otajson_parseFieldStringTerminateMaybeRealloc(
             pAfrOtaJson, afrOtaJsonLength, CONST_KEY(JOBKEY_AFROTA_STREAM_NAME), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pStreamName, pFileContext->streamNameMaxSize);
     }
@@ -705,7 +705,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         /* "protocols" is an array that can contain the strings "MQTT" and "HTTP". */
-        err = otajson_SearchProtocols(
+        err = otajson_parseFieldProtocols(
             pAfrOtaJson, afrOtaJsonLength, CONST_KEY(JOBKEY_AFROTA_PROTOCOLS),
             &pFileContext->jobSupportsMqtt, &pFileContext->jobSupportsHttp);
     }
@@ -713,7 +713,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota.files[0]", a required object in a required array. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchObject(
+        err = otajson_parseFieldObject(
             pAfrOtaJson, afrOtaJsonLength, CONST_KEY(JOBKEY_AFROTA_FILES0), OTA_JOB_PARAM_REQUIRED,
             &pFiles0Json, &files0JsonLength);
     }
@@ -725,7 +725,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota.files[0].filepath", an optional possibly dynamic string. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchStringTerminateMaybeRealloc(
+        err = otajson_parseFieldStringTerminateMaybeRealloc(
             pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_PATH), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pFilePath, pFileContext->filePathMaxSize);
     }
@@ -733,14 +733,14 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota.files[0].filesize", a required UInt32. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchUint32(
+        err = otajson_parseFieldUint32(
             pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_SIZE), OTA_JOB_PARAM_REQUIRED,
             &pFileContext->fileSize);
 
         if (err == DocParseErrFieldTypeMismatch)
         {
             /* "filesize" is for some reason sometimes wrapped in a string. */
-            err = otajson_SearchUint32InString(
+            err = otajson_parseFieldUint32InString(
                 pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_SIZE), OTA_JOB_PARAM_REQUIRED,
                 &pFileContext->fileSize);
         }
@@ -749,7 +749,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota.files[0].fileid", a required UInt32. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchUint32(
+        err = otajson_parseFieldUint32(
             pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_ID), OTA_JOB_PARAM_REQUIRED,
             &pFileContext->serverFileID);
     }
@@ -757,7 +757,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota.files[0].certfile", an optional possibly dynamic string. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchStringTerminateMaybeRealloc(
+        err = otajson_parseFieldStringTerminateMaybeRealloc(
             pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_CERT_FILE), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pCertFilepath, pFileContext->certFilePathMaxSize);
     }
@@ -765,7 +765,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota.files[0].update_data_url", an optional possibly dynamic string. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchStringTerminateMaybeRealloc(
+        err = otajson_parseFieldStringTerminateMaybeRealloc(
             pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_UPDATE_DATA_URL), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pUpdateUrlPath, pFileContext->updateUrlMaxSize);
     }
@@ -773,7 +773,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota.files[0].auth_scheme", an optional possibly dynamic string. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchStringTerminateMaybeRealloc(
+        err = otajson_parseFieldStringTerminateMaybeRealloc(
             pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_AUTH_SCHEME), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pAuthScheme, pFileContext->authSchemeMaxSize);
     }
@@ -784,14 +784,14 @@ DocParseErr_t parseOtaDocument( const char * pJson,
         /* The key name for the signature is an extern global defined in the PAL layer. */
         size_t keyLength = strlen(OTA_JsonFileSignatureKey);
 
-        err = otajson_SearchSignature(
+        err = otajson_parseFieldSignature(
             pFiles0Json, files0JsonLength, OTA_JsonFileSignatureKey, keyLength, pFileContext->pSignature);
     }
 
     /* "execution.jobDocument.afr_ota.files[0].attr", an optional UInt32. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchUint32(
+        err = otajson_parseFieldUint32(
             pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_ATTRIBUTES), OTA_JOB_PARAM_OPTIONAL,
             &pFileContext->fileAttributes);
     }
@@ -799,7 +799,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     /* "execution.jobDocument.afr_ota.files[0].fileType", an optional UInt32. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchUint32(
+        err = otajson_parseFieldUint32(
             pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILETYPE), OTA_JOB_PARAM_OPTIONAL,
             &pFileContext->fileType);
     }
