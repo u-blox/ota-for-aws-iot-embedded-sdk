@@ -213,16 +213,12 @@ static OtaJobParseErr_t validateAndStartJob( OtaFileContext_t * pFileContext,
 /**
  * @brief Parse the OTA job document, validate and return the populated OTA context if valid.
  *
- * @param[in] pJsonExpectedParams Structure to store the details of keys and where to store them.
- * @param[in] numJobParams Number of parameters to be extracted.
  * @param[in] pJson JSON job document.
  * @param[in] messageLength Length of the job document.
  * @param[in] pUpdateJob Represents if the job is accepted.
  * @return OtaFileContext_t* File context to store file information.
  */
-static OtaFileContext_t * parseJobDoc( const JsonDocParam_t * pJsonExpectedParams,
-                                       uint16_t numJobParams,
-                                       const char * pJson,
+static OtaFileContext_t * parseJobDoc( const char * pJson,
                                        uint32_t messageLength,
                                        bool * pUpdateJob );
 
@@ -1827,9 +1823,7 @@ static void handleJobParsingError( const OtaFileContext_t * pFileContext,
  * OTA context if valid otherwise return NULL.
  */
 
-static OtaFileContext_t * parseJobDoc( const JsonDocParam_t * pJsonExpectedParams,
-                                       uint16_t numJobParams,
-                                       const char * pJson,
+static OtaFileContext_t * parseJobDoc( const char * pJson,
                                        uint32_t messageLength,
                                        bool * pUpdateJob )
 {
@@ -1837,31 +1831,17 @@ static OtaFileContext_t * parseJobDoc( const JsonDocParam_t * pJsonExpectedParam
     DocParseErr_t parseError = DocParseErrNone;
     OtaFileContext_t * pFinalFile = NULL;
     OtaFileContext_t * pFileContext = &( otaAgent.fileContext );
-    JsonDocModel_t otaJobDocModel;
     OtaJobDocument_t jobDoc = { 0 };
 
-    parseError = initDocModel( &otaJobDocModel,
-                               pJsonExpectedParams,
-                               ( void * ) pFileContext,
-                               ( uint32_t ) sizeof( OtaFileContext_t ),
-                               numJobParams );
+    parseError = parseOtaDocument( pJson, messageLength, &otaAgent.pOtaInterface->os.mem, pFileContext );
 
-    if( parseError != DocParseErrNone )
+    if( parseError == DocParseErrNone )
     {
-        err = OtaJobParseErrBadModelInitParams;
+        err = validateAndStartJob( pFileContext, &pFinalFile, pUpdateJob );
     }
     else
     {
-        parseError = parseOtaDocument( pJson, messageLength, &otaAgent.pOtaInterface->os.mem, pFileContext );
-
-        if( parseError == DocParseErrNone )
-        {
-            err = validateAndStartJob( pFileContext, &pFinalFile, pUpdateJob );
-        }
-        else
-        {
-            err = handleCustomJob( pJson, messageLength );
-        }
+        err = handleCustomJob( pJson, messageLength );
     }
 
     if( err == OtaJobParseErrNone )
@@ -1905,7 +1885,7 @@ static OtaFileContext_t * getFileContextFromJob( const char * pRawMsg,
 
     /* Populate an OTA file context from the OTA job document. */
 
-    pUpdateFile = parseJobDoc( otaJobDocModelParamStructure, OTA_NUM_JOB_PARAMS, pRawMsg, messageLength, &updateJob );
+    pUpdateFile = parseJobDoc( pRawMsg, messageLength, &updateJob );
 
     if( updateJob == true )
     {

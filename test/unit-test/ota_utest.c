@@ -3078,32 +3078,6 @@ void test_OTA_setDataInterface_InvalidInput( void )
 /* ==================== OTA Private Function Unit Tests ===================== */
 /* ========================================================================== */
 
-void test_OTA_initDocModelFail()
-{
-    DocParseErr_t parseError = DocParseErrNone;
-    JsonDocModel_t otaJobDocModel;
-
-    parseError = initDocModel( NULL,
-                               otaJobDocModelParamStructure,
-                               ( void * ) &( otaAgent.fileContext ),
-                               ( uint32_t ) sizeof( OtaFileContext_t ),
-                               OTA_NUM_JOB_PARAMS );
-    TEST_ASSERT_EQUAL( DocParseErrNullModelPointer, parseError );
-
-    parseError = initDocModel( &otaJobDocModel,
-                               NULL,
-                               ( void * ) &( otaAgent.fileContext ),
-                               ( uint32_t ) sizeof( OtaFileContext_t ),
-                               OTA_NUM_JOB_PARAMS );
-    TEST_ASSERT_EQUAL( DocParseErrNullBodyPointer, parseError );
-
-    parseError = initDocModel( &otaJobDocModel,
-                               otaJobDocModelParamStructure,
-                               ( void * ) &( otaAgent.fileContext ),
-                               ( uint32_t ) sizeof( OtaFileContext_t ),
-                               OTA_DOC_MODEL_MAX_PARAMS + 1 );
-    TEST_ASSERT_EQUAL( DocParseErrTooManyParams, parseError );
-}
 
 void test_OTA_parseJobFailsNullJsonDocument()
 {
