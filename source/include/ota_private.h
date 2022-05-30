@@ -175,35 +175,9 @@ typedef enum
     DocParseErrFieldTypeMismatch,     /*!< The field type parsed does not match the document model. */
     DocParseErrBase64Decode,          /*!< There was an error decoding the base64 data. */
     DocParseErrInvalidNumChar,        /*!< There was an invalid character in a numeric value field. */
-    DocParseErrDuplicatesNotAllowed,  /*!< A duplicate parameter was found in the job document. */
     DocParseErrMalformedDoc,          /*!< The document didn't fulfill the model requirements. */
-    DocParseErr_InvalidJSONBuffer,    /*!< When the JSON is malformed and not parsed correctly. */
-    DocParseErrNullModelPointer,      /*!< The pointer to the document model was NULL. */
-    DocParseErrNullBodyPointer,       /*!< The document model's internal body pointer was NULL. */
-    DocParseErrNullDocPointer,        /*!< The pointer to the JSON document was NULL. */
-    DocParseErrTooManyParams,         /*!< The document model has more parameters than we can handle. */
-    DocParseErrParamKeyNotInModel,    /*!< The document model does not include the specified parameter key. */
-    DocParseErrInvalidModelParamType, /*!< The document model specified an invalid parameter type. */
-    DocParseErrInvalidToken,          /*!< The Jasmine token was invalid, producing a NULL pointer. */
-    DocParseErrNotFound
+    DocParseErrNotFound               /*!< A field in the document was not found. */
 } DocParseErr_t;
-
-/**
- * @ingroup ota_private_enum_types
- * @brief Document model parameter types used by the JSON document parser.
- *
- */
-typedef enum
-{
-    ModelParamTypeStringCopy,
-    ModelParamTypeStringInDoc, /* Only use this type if you can process before freeing the document memory. */
-    ModelParamTypeObject,
-    ModelParamTypeArray,
-    ModelParamTypeUInt32,
-    ModelParamTypeSigBase64,
-    ModelParamTypeIdent,
-    ModelParamTypeArrayCopy
-} ModelParamType_t;
 
 /**
  * @ingroup ota_private_enum_types
