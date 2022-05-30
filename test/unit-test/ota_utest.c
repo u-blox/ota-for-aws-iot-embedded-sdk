@@ -194,9 +194,6 @@ extern OtaFileContext_t * parseJobDoc( const JsonDocParam_t * pJsonDoc,
                                        uint32_t messageLength,
                                        bool * pUpdateJob );
 
-extern DocParseErr_t validateJSON( const char * pJson,
-                                   uint32_t messageLength );
-
 extern IngestResult_t ingestDataBlockCleanup( OtaFileContext_t * pFileContext,
                                               OtaPalStatus_t * pCloseResult );
 
@@ -3156,14 +3153,6 @@ void test_OTA_extractParameterFailInvalidJobDocModel()
 
     TEST_ASSERT_NULL( pContext );
     TEST_ASSERT_EQUAL( false, updateJob );
-}
-
-void test_OTA_validateJSONFailNullJson()
-{
-    DocParseErr_t err = DocParseErrNone;
-
-    err = validateJSON( NULL, 0 );
-    TEST_ASSERT_EQUAL( DocParseErrNullDocPointer, err );
 }
 
 void test_OTA_validateDataBlockInputSize()
