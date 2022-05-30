@@ -217,6 +217,232 @@ DocParseErr_t otajson_SearchUint32(const char * pJson,
     return err;
 }
 
+bool otajson_isoctaldigit(char c)
+{
+    return isdigit(c) && c != '8' && c != '9';
+}
+
+DocParseErr_t Uint32FromStringLikeStrtoul(const char * str, size_t strLength, uint32_t * out)
+{
+    DocParseErr_t err = DocParseErrNone;
+    uint32_t result = 0;
+    size_t i;
+    uint32_t base;
+    uint32_t uintMaxOverBase;
+    const char * pDigits;
+    size_t digitsLength;
+    uint32_t digit;
+
+    /* Skip leading whitespace. */
+    for (i = 0; i < strLength; i++) {
+        if (!isspace(str[i]))
+        {
+            break;
+        }
+    }
+
+    /* Interpret sign. */
+    if (i < strLength)
+    {
+        if (str[i] == '+')
+        {
+            /* Skip a plus sign. */
+            i++;
+        }
+        else if (str[i] == '-')
+        {
+            /* Negative numbers are not allowed */
+            err = DocParseErrInvalidNumChar;
+        }
+    }
+    else
+    {
+        /* We never got to the digits. */
+        err = DocParseErrInvalidNumChar;
+    }
+
+    /* Examine the first digit. */
+    if (err == DocParseErrNone)
+    {
+        if (i < strLength && isdigit(str[i]))
+        {
+            if (str[i] == '0')
+            {
+                /* This number could be zero, or an octal number, or a hexidecimal number. */
+                i++;
+
+                if (i < strLength)
+                {
+                    /* This character could be an octal digit, an 'X', an 'x' or another non-digit. */
+                    if (isdigit(str[i]))
+                    {
+                        /* octal (will check for valid octal digits below) */
+                        base = 8;
+                        pDigits = &str[i];
+                        digitsLength = strLength - i;
+                    }
+                    else if (str[i] == 'X' || str[i] == 'x')
+                    {
+                        /* hexidecimal */
+                        i++;
+                        base = 16;
+                        pDigits = &str[i];
+                        digitsLength = strLength - i;
+                    }
+                    else
+                    {
+                        /* There is one digit and it's zero. Fall through to the base 10 parser. */
+                        base = 10;
+                        pDigits = &str[i];
+                        digitsLength = 1;
+                    }
+                }
+                else
+                {
+                    /* There is one digit and it's zero. Fall through to the base 10 parser. */
+                    base = 10;
+                    pDigits = &str[i];
+                    digitsLength = 1;
+                }
+            }
+            else
+            {
+                /* A non-zero leading digit must be base 10. */
+                base = 10;
+                pDigits = &str[i];
+                digitsLength = strLength - i;
+            }
+        }
+        else
+        {
+            /* We never got to the digits. */
+            err = DocParseErrInvalidNumChar;
+        }
+    }
+
+    /* Compute the result by iterating through the digits. */
+    if (err == DocParseErrNone)
+    {
+        assert(base == 8 || base == 10 || base == 16);
+
+        /* Prevent overflow by knowing when result > (UINT_MAX / base).
+         * Compute at compile time to avoid runtime divisions. */
+        if (base == 8)
+        {
+            uintMaxOverBase = (UINT32_MAX / 8);
+        }
+        else if (base == 10)
+        {
+            uintMaxOverBase = (UINT32_MAX / 10);
+        }
+        else
+        {
+            assert(base == 16);
+            uintMaxOverBase = (UINT32_MAX / 16);
+        }
+
+        for (i = 0; i < digitsLength; i++)
+        {
+            /* Check for the end of the digits.
+             * To match strtoul, characters after the first non-digit are ignored. */
+            if (base == 16 && !isxdigit(pDigits[i]))
+            {
+                break;
+            }
+            else if (base == 10 && !isdigit(pDigits[i]))
+            {
+                break;
+            }
+            else if (!otajson_isoctaldigit(pDigits[i]))
+            {
+                assert(base == 8);
+                break;
+            }
+
+            /* Convert the current digit to a uint. */
+            if (isdigit(pDigits[i]))
+            {
+                digit = ((uint32_t) pDigits[i]) - '0';
+            }
+            else
+            {
+                assert(base == 16);
+                if (pDigits[i] >= 'A' && pDigits[i] <= 'F')
+                {
+                    digit = ((uint32_t) pDigits[i]) - 'A' + 10;
+                }
+                else
+                {
+                    assert(pDigits[i] >= 'a' && pDigits[i] <= 'f');
+                    digit = ((uint32_t) pDigits[i]) - 'a' + 10;
+                }
+            }
+
+            /* Add the current digit into the result. */
+            if (result > uintMaxOverBase)
+            {
+                /* Overflow. */
+                err = DocParseErrInvalidNumChar;
+            }
+            else
+            {
+                result *= base;
+                if (result > (UINT32_MAX - digit))
+                {
+                    /* Overflow. */
+                    err = DocParseErrInvalidNumChar;
+                }
+                else
+                {
+                    result += digit;
+                }
+            }
+        }
+
+        if (i == 0)
+        {
+            /* No digits found at all. */
+            err = DocParseErrInvalidNumChar;
+        }
+        else if (base == 8 && i < digitsLength && isdigit(pDigits[i]))
+        {
+            /* A non-octal digit after a set of octal digits is invalid. */
+            err = DocParseErrInvalidNumChar;
+        }
+    }
+
+    if (err == DocParseErrNone && out != NULL)
+    {
+        *out = result;
+    }
+    return err;
+}
+
+DocParseErr_t otajson_SearchUint32InString(const char * pJson,
+                                size_t jsonLength,
+                                const char * key,
+                                size_t keyLength,
+                                bool required,
+                                uint32_t * out)
+{
+    DocParseErr_t err;
+    const char * pValue;
+    size_t valueLength;
+
+    err = otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
+
+    if (err == DocParseErrNone)
+    {
+        /*
+         * Previous implementations used strtoul to parse this string. This function must match its
+         * behavior.
+         */
+        err = Uint32FromStringLikeStrtoul(pValue, valueLength, out);
+    }
+
+    return err;
+}
+
 DocParseErr_t otajson_SearchSignature(const char * pJson,
                                         size_t jsonLength,
                                         const char * key,
@@ -502,6 +728,14 @@ DocParseErr_t parseOtaDocument( const char * pJson,
         err = otajson_SearchUint32(
             pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_SIZE), OTA_JOB_PARAM_REQUIRED,
             &pFileContext->fileSize);
+
+        if (err == DocParseErrFieldTypeMismatch)
+        {
+            /* "filesize" is for some reason sometimes wrapped in a string. */
+            err = otajson_SearchUint32InString(
+                pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_SIZE), OTA_JOB_PARAM_REQUIRED,
+                &pFileContext->fileSize);
+        }
     }
 
     /* "execution.jobDocument.afr_ota.files[0].fileid", a required UInt32. */
