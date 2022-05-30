@@ -704,6 +704,12 @@ DocParseErr_t parseOtaDocument( const char * pJson,
 
     #undef CONST_KEY
 
+    /* DocParseErrNotFound here just means an optional field was missing. */
+    if (err == DocParseErrNotFound)
+    {
+        err = DocParseErrNone;
+    }
+
     return err;
 }
 
