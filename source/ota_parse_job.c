@@ -8,165 +8,31 @@
 #include "ota_base64_private.h"
 #include "ota_parse_job_private.h"
 
+/*
+ * String parsing to extract numbers and base64 encoded signature objects.
+ */
 
-DocParseErr_t otajson_getFieldValue(const char * pJson,
-                                size_t jsonLength,
-                                const char * pKey,
-                                size_t keyLength,
-                                bool required,
-                                JSONTypes_t expectedType,
-                                const char ** ppValue,
-                                size_t * pValueLength)
+bool otajson_isoctaldigit(char c)
 {
-    DocParseErr_t err = DocParseErrNone;
-    JSONStatus_t status;
-    const char * pValue;
-    size_t valueLength;
-    JSONTypes_t valueType;
-
-    status = JSON_SearchConst(pJson,
-        jsonLength,
-        pKey,
-        keyLength,
-        &pValue,
-        &valueLength,
-        &valueType);
-    if (status == JSONSuccess) {
-        if (valueType == expectedType)
-        {
-            *ppValue = pValue;
-            *pValueLength = valueLength;
-        }
-        else
-        {
-            err = DocParseErrFieldTypeMismatch;
-        }
-    }
-    else if (!required && (status == JSONNotFound))
-    {
-        err = DocParseErrNotFound;
-    }
-    else
-    {
-        err = DocParseErrMalformedDoc;
-    }
-
-    return err;
-
+    return isdigit(c) && c != '8' && c != '9';
 }
 
-DocParseErr_t otajson_parseFieldObject(const char * pJson,
-                                size_t jsonLength,
-                                const char * pKey,
-                                size_t keyLength,
-                                bool required,
-                                const char ** ppOut,
-                                size_t * pOutLength)
-{
-    return otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONObject, ppOut, pOutLength);
-}
-
-DocParseErr_t otajson_parseFieldStringTerminate(const char * pJson,
-                                size_t jsonLength,
-                                const char * pKey,
-                                size_t keyLength,
-                                bool required,
-                                char * pOut,
-                                size_t outLength)
-{
-    DocParseErr_t err;
-    const char * pValue;
-    size_t valueLength;
-
-    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONString, &pValue, &valueLength);
-    if (err == DocParseErrNone && pOut != NULL)
-    {
-        /* The output is expecting a NUL terminated string, so the raw value must be at least one byte smaller. */
-        if (valueLength < outLength)
-        {
-            memcpy(pOut, pValue, valueLength);
-            pOut[valueLength] = '\0';
-        }
-        else
-        {
-            err = DocParseErrUserBufferInsuffcient;
-        }
-    }
-
-    return err;
-}
-
-DocParseErr_t otajson_parseFieldStringTerminateRealloc(const char * pJson,
-                                size_t jsonLength,
-                                const char * pKey,
-                                size_t keyLength,
-                                bool required,
-                                const OtaMallocInterface_t * pMallocInterface,
-                                char ** ppOut)
-{
-    DocParseErr_t err = DocParseErrNone;
-    char * pOut = NULL;
-    const char * pValue;
-    size_t valueLength;
-
-    if (*ppOut != NULL)
-    {
-        pMallocInterface->free(*ppOut);
-        *ppOut = NULL;
-    }
-
-    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONString, &pValue, &valueLength);
-    if (err == DocParseErrNone)
-    {
-        pOut = pMallocInterface->malloc(valueLength + 1);
-        if (pOut != NULL)
-        {
-            memcpy(pOut, pValue, valueLength);
-            pOut[valueLength] = '\0';
-            *ppOut = pOut;
-        }
-        else
-        {
-            err = DocParseErrOutOfMemory;
-        }
-    }
-
-    return err;
-}
-
-DocParseErr_t otajson_parseFieldStringTerminateMaybeRealloc(const char * pJson,
-                                size_t jsonLength,
-                                const char * pKey,
-                                size_t keyLength,
-                                bool required,
-                                const OtaMallocInterface_t * pMallocInterface,
-                                char ** ppOut,
-                                size_t outLength)
-{
-    DocParseErr_t err;
-    if (outLength != 0)
-    {
-        assert(*ppOut != NULL);
-        err = otajson_parseFieldStringTerminate(
-            pJson, jsonLength, pKey, keyLength, required, *ppOut, outLength);
-    }
-    else
-    {
-        /* An output buffer length of zero means the output string is dynamically
-         * allocated on the heap. */
-        err = otajson_parseFieldStringTerminateRealloc(
-            pJson, jsonLength, pKey, keyLength, required, pMallocInterface, ppOut);
-    }
-
-    return err;
-}
-
-DocParseErr_t otajson_uint32FromString(const char * str, size_t strLength, uint32_t * out)
+/**
+ * @brief Parse a uint32_t from a decimal number string.
+ *
+ * Note: Negative and floating point numbers are valid JSON, but will be rejected.
+ *
+ * @param pValue The string to parse.
+ * @param valueLength
+ * @param pOut Receives the parsed uint32_t on success.
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_uint32FromString(const char * pValue, size_t valueLength, uint32_t * pOut)
 {
     DocParseErr_t err = DocParseErrNone;
     uint32_t result = 0;
     size_t i;
-    for (i = 0; i < strLength; i++)
+    for (i = 0; i < valueLength; i++)
     {
         if (result > (UINT32_MAX / 10))
         {
@@ -174,9 +40,9 @@ DocParseErr_t otajson_uint32FromString(const char * str, size_t strLength, uint3
             break;
         }
         result *= 10;
-        if (isdigit(str[i]))
+        if (isdigit(pValue[i]))
         {
-            uint32_t digit = ((uint32_t) str[i]) - '0';
+            uint32_t digit = ((uint32_t) pValue[i]) - '0';
             if (result > (UINT32_MAX - digit)) {
                 err = DocParseErrInvalidNumChar;
                 break;
@@ -189,40 +55,25 @@ DocParseErr_t otajson_uint32FromString(const char * str, size_t strLength, uint3
             break;
         }
     }
-    if (err == DocParseErrNone && out != NULL)
+    if (err == DocParseErrNone && pOut != NULL)
     {
-        *out = result;
+        *pOut = result;
     }
     return err;
 }
 
-DocParseErr_t otajson_parseFieldUint32(const char * pJson,
-                                size_t jsonLength,
-                                const char * pKey,
-                                size_t keyLength,
-                                bool required,
-                                uint32_t * out)
-{
-    DocParseErr_t err;
-    const char * pValue;
-    size_t valueLength;
-
-    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONNumber, &pValue, &valueLength);
-
-    if (err == DocParseErrNone)
-    {
-        err = otajson_uint32FromString(pValue, valueLength, out);
-    }
-
-    return err;
-}
-
-bool otajson_isoctaldigit(char c)
-{
-    return isdigit(c) && c != '8' && c != '9';
-}
-
-DocParseErr_t otajson_uint32FromStringLikeStrtoul(const char * str, size_t strLength, uint32_t * out)
+/**
+ * @brief Parse a uint32_t from a string as strtoul would, but with bounds checking.
+ *
+ * Parses octal, decimal, and hexidecimal numbers from a string. Leading whitespace is ignored.
+ * Non-digit characters at the end are ignored.
+ *
+ * @param pValue The string to parse.
+ * @param valueLength
+ * @param pOut Receives the parsed uint32_t on success.
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_uint32FromStringLikeStrtoul(const char * pValue, size_t valueLength, uint32_t * pOut)
 {
     DocParseErr_t err = DocParseErrNone;
     uint32_t result = 0;
@@ -234,22 +85,22 @@ DocParseErr_t otajson_uint32FromStringLikeStrtoul(const char * str, size_t strLe
     uint32_t digit;
 
     /* Skip leading whitespace. */
-    for (i = 0; i < strLength; i++) {
-        if (!isspace(str[i]))
+    for (i = 0; i < valueLength; i++) {
+        if (!isspace(pValue[i]))
         {
             break;
         }
     }
 
     /* Interpret sign. */
-    if (i < strLength)
+    if (i < valueLength)
     {
-        if (str[i] == '+')
+        if (pValue[i] == '+')
         {
             /* Skip a plus sign. */
             i++;
         }
-        else if (str[i] == '-')
+        else if (pValue[i] == '-')
         {
             /* Negative numbers are not allowed */
             err = DocParseErrInvalidNumChar;
@@ -264,36 +115,36 @@ DocParseErr_t otajson_uint32FromStringLikeStrtoul(const char * str, size_t strLe
     /* Examine the first digit. */
     if (err == DocParseErrNone)
     {
-        if (i < strLength && isdigit(str[i]))
+        if (i < valueLength && isdigit(pValue[i]))
         {
-            if (str[i] == '0')
+            if (pValue[i] == '0')
             {
                 /* This number could be zero, or an octal number, or a hexidecimal number. */
                 i++;
 
-                if (i < strLength)
+                if (i < valueLength)
                 {
                     /* This character could be an octal digit, an 'X', an 'x' or another non-digit. */
-                    if (isdigit(str[i]))
+                    if (isdigit(pValue[i]))
                     {
                         /* octal (will check for valid octal digits below) */
                         base = 8;
-                        pDigits = &str[i];
-                        digitsLength = strLength - i;
+                        pDigits = &pValue[i];
+                        digitsLength = valueLength - i;
                     }
-                    else if (str[i] == 'X' || str[i] == 'x')
+                    else if (pValue[i] == 'X' || pValue[i] == 'x')
                     {
                         /* hexidecimal */
                         i++;
                         base = 16;
-                        pDigits = &str[i];
-                        digitsLength = strLength - i;
+                        pDigits = &pValue[i];
+                        digitsLength = valueLength - i;
                     }
                     else
                     {
                         /* There is one digit and it's zero. Fall through to the base 10 parser. */
                         base = 10;
-                        pDigits = &str[i];
+                        pDigits = &pValue[i];
                         digitsLength = 1;
                     }
                 }
@@ -301,7 +152,7 @@ DocParseErr_t otajson_uint32FromStringLikeStrtoul(const char * str, size_t strLe
                 {
                     /* There is one digit and it's zero. Fall through to the base 10 parser. */
                     base = 10;
-                    pDigits = &str[i];
+                    pDigits = &pValue[i];
                     digitsLength = 1;
                 }
             }
@@ -309,8 +160,8 @@ DocParseErr_t otajson_uint32FromStringLikeStrtoul(const char * str, size_t strLe
             {
                 /* A non-zero leading digit must be base 10. */
                 base = 10;
-                pDigits = &str[i];
-                digitsLength = strLength - i;
+                pDigits = &pValue[i];
+                digitsLength = valueLength - i;
             }
         }
         else
@@ -411,87 +262,113 @@ DocParseErr_t otajson_uint32FromStringLikeStrtoul(const char * str, size_t strLe
         }
     }
 
-    if (err == DocParseErrNone && out != NULL)
+    if (err == DocParseErrNone && pOut != NULL)
     {
-        *out = result;
+        *pOut = result;
     }
     return err;
 }
 
-DocParseErr_t otajson_parseFieldUint32InString(const char * pJson,
+/*
+ * Functions to find, type check, and parse object fields.
+ */
+
+/**
+ * @brief Finds and type checks a field inside a JSON object.
+ *
+ * @param pJson String containing a JSON object.
+ * @param jsonLength Length of the object in bytes.
+ * @param pKey key to look up in the object.
+ * @param keyLength Length of the key in bytes.
+ * @param required `true` if the field's absence is an error.
+ * @param expectedType Expected type of the JSON value in the object.
+ * @param[out] ppValue Receives a pointer to the value.
+ * @param[out] pValueLength Receives the length of the value.
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_getFieldValue(const char * pJson,
                                 size_t jsonLength,
                                 const char * pKey,
                                 size_t keyLength,
                                 bool required,
-                                uint32_t * out)
+                                JSONTypes_t expectedType,
+                                const char ** ppValue,
+                                size_t * pValueLength)
 {
-    DocParseErr_t err;
+    DocParseErr_t err = DocParseErrNone;
+    JSONStatus_t status;
     const char * pValue;
     size_t valueLength;
+    JSONTypes_t valueType;
 
-    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONString, &pValue, &valueLength);
-
-    if (err == DocParseErrNone)
-    {
-        /*
-         * Previous implementations used strtoul to parse this string. This function must match its
-         * behavior.
-         */
-        err = otajson_uint32FromStringLikeStrtoul(pValue, valueLength, out);
-    }
-
-    return err;
-}
-
-DocParseErr_t otajson_parseFieldSignature(const char * pJson,
-                                        size_t jsonLength,
-                                        const char * pKey,
-                                        size_t keyLength,
-                                        Sig256_t * pSignature)
-{
-    DocParseErr_t err;
-    const char * pValue;
-    size_t valueLength;
-    Base64Status_t decodeStatus;
-    size_t decodedLength;
-
-    /* Note: signatures are always optional. */
-    err = otajson_getFieldValue(
-        pJson, jsonLength, pKey, keyLength, OTA_JOB_PARAM_OPTIONAL, JSONString, &pValue, &valueLength);
-
-    if (err == DocParseErrNone)
-    {
-        decodeStatus = base64Decode( pSignature->data,
-                                    sizeof( pSignature->data ),
-                                    &decodedLength,
-                                    ( const uint8_t * ) pValue,
-                                    valueLength );
-
-        if( decodeStatus != Base64Success )
+    status = JSON_SearchConst(pJson,
+        jsonLength,
+        pKey,
+        keyLength,
+        &pValue,
+        &valueLength,
+        &valueType);
+    if (status == JSONSuccess) {
+        if (valueType == expectedType)
         {
-            /* Stop processing on error. */
-            LogError( ( "Failed to decode Base64 data: "
-                        "base64Decode returned error: "
-                        "error=%d",
-                        base64Status ) );
-            err = DocParseErrBase64Decode;
+            *ppValue = pValue;
+            *pValueLength = valueLength;
         }
         else
         {
-            char pLogBuffer[ 33 ];
-            ( void ) strncpy( pLogBuffer, pValue, 32 );
-            pLogBuffer[ 32 ] = '\0';
-            LogInfo( ( "Extracted parameter [ %s: %s... ]",
-                    OTA_JsonFileSignatureKey,
-                    pLogBuffer ) );
-
-            pSignature->size = (uint16_t)decodedLength;
+            err = DocParseErrFieldTypeMismatch;
         }
+    }
+    else if (!required && (status == JSONNotFound))
+    {
+        err = DocParseErrNotFound;
+    }
+    else
+    {
+        err = DocParseErrMalformedDoc;
     }
 
     return err;
+
 }
 
+/**
+ * @brief Finds and type-checks an object value in an object field.
+ *
+ * @param pJson A JSON string describing the outer object to search.
+ * @param jsonLength
+ * @param pKey The key to find in the outer object.
+ * @param keyLength
+ * @param required true if the field's absence is an error.
+ * @param ppOut Receives a pointer to the field value object.
+ * @param pOutLength
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_parseFieldObject(const char * pJson,
+                                size_t jsonLength,
+                                const char * pKey,
+                                size_t keyLength,
+                                bool required,
+                                const char ** ppOut,
+                                size_t * pOutLength)
+{
+    return otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONObject, ppOut, pOutLength);
+}
+
+/**
+ * @brief Finds and parses an array of protocol name strings.
+ *
+ * The protocols field of a job document is an array of strings. This function
+ * knows about MQTT and HTTP
+ *
+ * @param pJson A JSON object to search.
+ * @param jsonLength
+ * @param pKey The key to find the protocol array.
+ * @param keyLength
+ * @param[out] pSupportsMqtt Receives true if the array contains "MQTT"
+ * @param[out] pSupportsHttp Receives true if the array contains "HTTP"
+ * @return DocParseErr_t
+ */
 DocParseErr_t otajson_parseFieldProtocols(const char * pJson,
                                         size_t jsonLength,
                                         const char * pKey,
@@ -553,6 +430,278 @@ DocParseErr_t otajson_parseFieldProtocols(const char * pJson,
     return err;
 }
 
+/**
+ * @brief Finds and a string from an object field and copies to an output buffer.
+ *
+ * The OTA library mostly deals with NUL terminated strings, but the strings returned
+ * from the JSON parser are not terminated. This function copies the string it finds to the output,
+ * and then NUL terminates the output.
+ *
+ * @param pJson A JSON object to search.
+ * @param jsonLength
+ * @param pKey The key to find the string.
+ * @param keyLength
+ * @param required `true` if the field's absence is an error.
+ * @param pOut Receives a NUL terminated copy of the value.
+ * @param outLength Length of the buffer in bytes. Strings that don't fit fail to parse.
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_parseFieldStringTerminate(const char * pJson,
+                                size_t jsonLength,
+                                const char * pKey,
+                                size_t keyLength,
+                                bool required,
+                                char * pOut,
+                                size_t outLength)
+{
+    DocParseErr_t err;
+    const char * pValue;
+    size_t valueLength;
+
+    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONString, &pValue, &valueLength);
+    if (err == DocParseErrNone && pOut != NULL)
+    {
+        /* The output is expecting a NUL terminated string, so the raw value must be at least one byte smaller. */
+        if (valueLength < outLength)
+        {
+            memcpy(pOut, pValue, valueLength);
+            pOut[valueLength] = '\0';
+        }
+        else
+        {
+            err = DocParseErrUserBufferInsuffcient;
+        }
+    }
+
+    return err;
+}
+
+/**
+ * @brief Finds and a string from an object field and copies to a dynamically allocated buffer.
+ *
+ * @param pJson A JSON object to search.
+ * @param jsonLength
+ * @param pKey The key to find the string.
+ * @param keyLength
+ * @param required `true` if the field's absence is an error.
+ * @param pMallocInterface An interface for allocating and freeing dynamic string fields.
+ * @param ppOut Receives the allocated string.
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_parseFieldStringTerminateRealloc(const char * pJson,
+                                size_t jsonLength,
+                                const char * pKey,
+                                size_t keyLength,
+                                bool required,
+                                const OtaMallocInterface_t * pMallocInterface,
+                                char ** ppOut)
+{
+    DocParseErr_t err = DocParseErrNone;
+    char * pOut = NULL;
+    const char * pValue;
+    size_t valueLength;
+
+    if (*ppOut != NULL)
+    {
+        pMallocInterface->free(*ppOut);
+        *ppOut = NULL;
+    }
+
+    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONString, &pValue, &valueLength);
+    if (err == DocParseErrNone)
+    {
+        pOut = pMallocInterface->malloc(valueLength + 1);
+        if (pOut != NULL)
+        {
+            memcpy(pOut, pValue, valueLength);
+            pOut[valueLength] = '\0';
+            *ppOut = pOut;
+        }
+        else
+        {
+            err = DocParseErrOutOfMemory;
+        }
+    }
+
+    return err;
+}
+
+/**
+ * @brief Finds and a string from an object field and copies to an appropriate buffer.
+ *
+ * Some buffers in OTA are statically allocated and some are allocated from the heap.
+ * The output buffers of the string parser could be either type, and the type is
+ * determined at runtime.
+ *
+ * This function knows it should allocate a new buffer if its outLength parameter is zero.
+ *
+ * @param pJson A JSON object to search.
+ * @param jsonLength
+ * @param pKey The key to find the string.
+ * @param keyLength
+ * @param required `true` if the field's absence is an error.
+ * @param pMallocInterface An interface for allocating and freeing dynamic string fields.
+ * @param[in,out] ppOut Points to a static buffer if *ppOut is non-NULL, otherwise receives the allocated buffer.
+ * @param outLength Indicates the length of the *ppOut static buffer if non-zero.
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_parseFieldStringTerminateMaybeRealloc(const char * pJson,
+                                size_t jsonLength,
+                                const char * pKey,
+                                size_t keyLength,
+                                bool required,
+                                const OtaMallocInterface_t * pMallocInterface,
+                                char ** ppOut,
+                                size_t outLength)
+{
+    DocParseErr_t err;
+    if (outLength != 0)
+    {
+        assert(*ppOut != NULL);
+        err = otajson_parseFieldStringTerminate(
+            pJson, jsonLength, pKey, keyLength, required, *ppOut, outLength);
+    }
+    else
+    {
+        /* An output buffer length of zero means the output string is dynamically
+         * allocated on the heap. */
+        err = otajson_parseFieldStringTerminateRealloc(
+            pJson, jsonLength, pKey, keyLength, required, pMallocInterface, ppOut);
+    }
+
+    return err;
+}
+
+/**
+ * @brief Finds and parses a base64 encoded Sig256_t struct in an object field.
+ *
+ * @param pJson A JSON object to search.
+ * @param jsonLength
+ * @param pKey The key to find the encoded signature.
+ * @param keyLength
+ * @param[out] pSignature Receives the parsed and decoded signature struct.
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_parseFieldSignature(const char * pJson,
+                                        size_t jsonLength,
+                                        const char * pKey,
+                                        size_t keyLength,
+                                        Sig256_t * pSignature)
+{
+    DocParseErr_t err;
+    const char * pValue;
+    size_t valueLength;
+    Base64Status_t decodeStatus;
+    size_t decodedLength;
+
+    /* Note: signatures are always optional. */
+    err = otajson_getFieldValue(
+        pJson, jsonLength, pKey, keyLength, OTA_JOB_PARAM_OPTIONAL, JSONString, &pValue, &valueLength);
+
+    if (err == DocParseErrNone)
+    {
+        decodeStatus = base64Decode( pSignature->data,
+                                    sizeof( pSignature->data ),
+                                    &decodedLength,
+                                    ( const uint8_t * ) pValue,
+                                    valueLength );
+
+        if( decodeStatus != Base64Success )
+        {
+            /* Stop processing on error. */
+            LogError( ( "Failed to decode Base64 data: "
+                        "base64Decode returned error: "
+                        "error=%d",
+                        base64Status ) );
+            err = DocParseErrBase64Decode;
+        }
+        else
+        {
+            char pLogBuffer[ 33 ];
+            ( void ) strncpy( pLogBuffer, pValue, 32 );
+            pLogBuffer[ 32 ] = '\0';
+            LogInfo( ( "Extracted parameter [ %s: %s... ]",
+                    OTA_JsonFileSignatureKey,
+                    pLogBuffer ) );
+
+            pSignature->size = (uint16_t)decodedLength;
+        }
+    }
+
+    return err;
+}
+
+/**
+ * @brief Finds and parses a uint32_t from an object field of type JSONNumber.
+ *
+ * @param pJson A JSON object to search.
+ * @param jsonLength
+ * @param pKey The key to find the number.
+ * @param keyLength
+ * @param required `true` if the field's absence is an error.
+ * @param pOut Receives the parsed uint32_t on success.
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_parseFieldUint32(const char * pJson,
+                                size_t jsonLength,
+                                const char * pKey,
+                                size_t keyLength,
+                                bool required,
+                                uint32_t * pOut)
+{
+    DocParseErr_t err;
+    const char * pValue;
+    size_t valueLength;
+
+    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONNumber, &pValue, &valueLength);
+
+    if (err == DocParseErrNone)
+    {
+        err = otajson_uint32FromString(pValue, valueLength, pOut);
+    }
+
+    return err;
+}
+
+
+/**
+ * @brief Finds and parses a uint32_t from an object field of type JSONString.
+ *
+ * Finds a string in a JSON object field and decodes it as strtoul would.
+ *
+ * @param pJson A JSON object to search.
+ * @param jsonLength
+ * @param pKey The key to find the number.
+ * @param keyLength
+ * @param required `true` if the field's absence is an error.
+ * @param pOut Receives the parsed uint32_t on success.
+ * @return DocParseErr_t
+ */
+DocParseErr_t otajson_parseFieldUint32InString(const char * pJson,
+                                size_t jsonLength,
+                                const char * pKey,
+                                size_t keyLength,
+                                bool required,
+                                uint32_t * pOut)
+{
+    DocParseErr_t err;
+    const char * pValue;
+    size_t valueLength;
+
+    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONString, &pValue, &valueLength);
+
+    if (err == DocParseErrNone)
+    {
+        /*
+         * Previous implementations used strtoul to parse this string. This function must match its
+         * behavior.
+         */
+        err = otajson_uint32FromStringLikeStrtoul(pValue, valueLength, pOut);
+    }
+
+    return err;
+}
+
 
 /*
  * String constants for parsing OTA job documents.
@@ -587,6 +736,15 @@ DocParseErr_t otajson_parseFieldProtocols(const char * pJson,
 #define JOBKEY_FILES0_AUTH_SCHEME        "auth_scheme"                  /*!< @brief Authentication scheme for downloading a the image over HTTP. */
 #define JOBKEY_FILES0_FILETYPE           "fileType"                     /*!< @brief Used to identify the file in case of multi file type support. */
 
+/**
+ * @brief Parses an OTA job document and extracts values into pFileContext.
+ *
+ * @param pJson A JSON document describing an OTA job.
+ * @param messageLength Length of the JSON document in bytes.
+ * @param pMallocInterface An interface for allocating and freeing dynamic string fields.
+ * @param[out] pFileContext Results of parsing the document are stored here.
+ * @return DocParseErr_t
+ */
 DocParseErr_t parseOtaDocument( const char * pJson,
                                 uint32_t messageLength,
                                 const OtaMallocInterface_t * pMallocInterface,
