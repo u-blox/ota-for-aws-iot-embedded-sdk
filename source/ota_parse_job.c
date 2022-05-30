@@ -678,6 +678,14 @@ DocParseErr_t parseOtaDocument( const char * pJson,
             err = otajson_SearchUint32(
                 pStatusDetailsJson, statusDetailsJsonLength, CONST_KEY(JOBKEY_STATUS_DETAILS_UPDATED_BY), OTA_JOB_PARAM_OPTIONAL,
                 &pFileContext->updaterVersion);
+
+            /* "updatedBy" is for some reason sometimes wrapped in a string. */
+            if (err == DocParseErrFieldTypeMismatch)
+            {
+                err = otajson_SearchUint32InString(
+                    pStatusDetailsJson, statusDetailsJsonLength, CONST_KEY(JOBKEY_STATUS_DETAILS_UPDATED_BY), OTA_JOB_PARAM_OPTIONAL,
+                    &pFileContext->updaterVersion);
+            }
         }
     }
 
