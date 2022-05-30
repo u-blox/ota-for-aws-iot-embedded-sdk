@@ -401,8 +401,8 @@ typedef struct OtaFileContext
     uint16_t authSchemeMaxSize;     /*!< @brief Maximum size of the auth scheme. */
     uint32_t updaterVersion;        /*!< @brief Used by OTA self-test detection, the version of Firmware that did the update. */
     bool isInSelfTest;              /*!< @brief True if the job is in self test mode. */
-    uint8_t * pProtocols;           /*!< @brief Authorization scheme. */
-    uint16_t protocolMaxSize;       /*!< @brief Maximum size of the  supported protocols string. */
+    bool jobSupportsMqtt;           /*!< @brief True if the job supports the MQTT protocol. */
+    bool jobSupportsHttp;           /*!< @brief True if the job supports the HTTP protocol. */
     uint8_t * pDecodeMem;           /*!< @brief Decode memory. */
     uint32_t decodeMemMaxSize;      /*!< @brief Maximum size of the decode memory. */
     uint32_t fileType;              /*!< @brief The file type id set when creating the OTA job. */

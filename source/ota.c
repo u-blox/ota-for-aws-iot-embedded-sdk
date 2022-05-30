@@ -510,7 +510,7 @@ static const JsonDocParam_t otaJobDocModelParamStructure[ OTA_NUM_JOB_PARAMS ] =
     { OTA_JSON_JOB_DOC_KEY,         OTA_JOB_PARAM_REQUIRED, OTA_DONT_STORE_PARAM,         OTA_DONT_STORE_PARAM,  ModelParamTypeObject      },
     { OTA_JSON_OTA_UNIT_KEY,        OTA_JOB_PARAM_REQUIRED, OTA_DONT_STORE_PARAM,         OTA_DONT_STORE_PARAM,  ModelParamTypeObject      },
     { OTA_JSON_STREAM_NAME_KEY,     OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, pStreamName ),         U16_OFFSET( OtaFileContext_t, streamNameMaxSize ), ModelParamTypeStringCopy},
-    { OTA_JSON_PROTOCOLS_KEY,       OTA_JOB_PARAM_REQUIRED, U16_OFFSET( OtaFileContext_t, pProtocols ),          U16_OFFSET( OtaFileContext_t, protocolMaxSize ), ModelParamTypeArrayCopy},
+    /* @@@ { OTA_JSON_PROTOCOLS_KEY,       OTA_JOB_PARAM_REQUIRED, U16_OFFSET( OtaFileContext_t, pProtocols ),          U16_OFFSET( OtaFileContext_t, protocolMaxSize ), ModelParamTypeArrayCopy}, */
     { OTA_JSON_FILE_PATH_KEY,       OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, pFilePath ),           U16_OFFSET( OtaFileContext_t, filePathMaxSize ), ModelParamTypeStringCopy},
     { OTA_JSON_FILE_SIZE_KEY,       OTA_JOB_PARAM_REQUIRED, U16_OFFSET( OtaFileContext_t, fileSize ),            OTA_DONT_STORE_PARAM, ModelParamTypeUInt32},
     { OTA_JSON_FILE_ID_KEY,         OTA_JOB_PARAM_REQUIRED, U16_OFFSET( OtaFileContext_t, serverFileID ),        OTA_DONT_STORE_PARAM, ModelParamTypeUInt32},
@@ -523,7 +523,6 @@ static const JsonDocParam_t otaJobDocModelParamStructure[ OTA_NUM_JOB_PARAMS ] =
 };
 
 static uint8_t pJobNameBuffer[ OTA_JOB_ID_MAX_SIZE ];       /*!< Buffer to store job name. */
-static uint8_t pProtocolBuffer[ OTA_PROTOCOL_BUFFER_SIZE ]; /*!< Buffer to store data protocol. */
 static Sig256_t sig256Buffer;                               /*!< Buffer to store key file signature. */
 
 static void otaTimerCallback( OtaTimerId_t otaTimerId )
@@ -849,7 +848,7 @@ static OtaErr_t processValidFileContext( void )
     if( platformInSelftest() == false )
     {
         /* Init data interface routines */
-        retVal = setDataInterface( &otaDataInterface, otaAgent.fileContext.pProtocols );
+        retVal = setDataInterface( &otaDataInterface, otaAgent.fileContext.jobSupportsMqtt, otaAgent.fileContext.jobSupportsHttp );
 
         if( retVal == OtaErrNone )
         {
@@ -1853,7 +1852,7 @@ static OtaFileContext_t * parseJobDoc( const JsonDocParam_t * pJsonExpectedParam
     }
     else
     {
-        parseError = parseJSONbyModel( pJson, messageLength, &otaJobDocModel, &otaAgent.pOtaInterface->os.mem );
+        parseError = parseOtaDocument( pJson, messageLength, &otaAgent.pOtaInterface->os.mem, pFileContext );
 
         if( parseError == DocParseErrNone )
         {
@@ -2619,10 +2618,6 @@ static void initializeLocalBuffers( void )
     /* Initialize JOB Id buffer .*/
     otaAgent.fileContext.pJobName = pJobNameBuffer;
     otaAgent.fileContext.jobNameMaxSize = ( uint16_t ) sizeof( pJobNameBuffer );
-
-    /* Initialize protocol buffers .*/
-    otaAgent.fileContext.pProtocols = pProtocolBuffer;
-    otaAgent.fileContext.protocolMaxSize = ( uint16_t ) sizeof( pProtocolBuffer );
 
     otaAgent.fileContext.pSignature = &sig256Buffer;
 }

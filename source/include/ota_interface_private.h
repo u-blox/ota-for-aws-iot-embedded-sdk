@@ -112,7 +112,8 @@ void setControlInterface( OtaControlInterface_t * pControlInterface );
  *
  */
 OtaErr_t setDataInterface( OtaDataInterface_t * pDataInterface,
-                           const uint8_t * pProtocol );
+                           bool mqttInJobDoc,
+                           bool httpInJobDoc );
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

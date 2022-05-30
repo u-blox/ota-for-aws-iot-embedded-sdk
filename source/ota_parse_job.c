@@ -406,6 +406,68 @@ DocParseErr_t otajson_SearchSignature(const char * pJson,
     return err;
 }
 
+DocParseErr_t otajson_SearchProtocols(const char * pJson,
+                                        size_t jsonLength,
+                                        const char * key,
+                                        size_t keyLength,
+                                        bool * pSupportsMqtt,
+                                        bool * pSupportsHttp)
+{
+    DocParseErr_t err;
+    const char * pProtocols;
+    size_t protocolsLength;
+
+    JSONStatus_t status = JSONSuccess;
+    JSONPair_t pair;
+    size_t start = 0;
+    size_t next = 0;
+
+    bool supportsMqtt = false;
+    bool supportsHttp = false;
+
+    /* Note: the protocol array is always required. */
+    err = otajson_SearchField(
+        pJson, jsonLength, key, keyLength, OTA_JOB_PARAM_REQUIRED, JSONArray, &pProtocols, &protocolsLength);
+
+    if (err == DocParseErrNone)
+    {
+        while (status == JSONSuccess)
+        {
+            status = JSON_Iterate(pProtocols, protocolsLength, &start, &next, &pair);
+            if ( status != JSONSuccess )
+            {
+                break;
+            }
+            else
+            {
+                assert(pair.key == NULL);
+                if (pair.valueLength == CONST_STRLEN("MQTT") && strncmp(pair.value, "MQTT", CONST_STRLEN("MQTT")) == 0)
+                {
+                    supportsMqtt = true;
+                }
+                else if (pair.valueLength == CONST_STRLEN("HTTP") && strncmp(pair.value, "HTTP", CONST_STRLEN("HTTP")) == 0)
+                {
+                    supportsHttp = true;
+                }
+            }
+        }
+
+        /* JSONNotFound indicates the successful end of the iteration. */
+        if (status == JSONNotFound)
+        {
+            *pSupportsMqtt = supportsMqtt;
+            *pSupportsHttp = supportsHttp;
+        }
+        else
+        {
+            err = DocParseErrMalformedDoc;
+        }
+    }
+
+    return err;
+}
+
+
 /*
  * String constants for parsing OTA job documents.
  */
@@ -545,12 +607,13 @@ DocParseErr_t parseOtaDocument( const char * pJson,
             pMallocInterface, (char **)&pFileContext->pStreamName, pFileContext->streamNameMaxSize);
     }
 
-    /* "execution.jobDocument.afr_ota.protocols", a required static string. */
+    /* "execution.jobDocument.afr_ota.protocols", a required array of strings. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
-        err = otajson_SearchStringTerminate(
-            pAfrOtaJson, afrOtaJsonLength, CONST_KEY(JOBKEY_AFROTA_PROTOCOLS), OTA_JOB_PARAM_REQUIRED,
-            (char *)pFileContext->pProtocols, pFileContext->protocolMaxSize);
+        /* "protocols" is an array that can contain the strings "MQTT" and "HTTP". */
+        err = otajson_SearchProtocols(
+            pAfrOtaJson, afrOtaJsonLength, CONST_KEY(JOBKEY_AFROTA_PROTOCOLS),
+            &pFileContext->jobSupportsMqtt, &pFileContext->jobSupportsHttp);
     }
 
     /* "execution.jobDocument.afr_ota.files[0]", a required object in a required array. */

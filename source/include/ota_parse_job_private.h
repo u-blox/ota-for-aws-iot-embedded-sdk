@@ -67,3 +67,8 @@ JSONStatus_t otajson_searchObjectFields( const char * pJson,
                                        uint32_t fieldCount,
                                        const OtaFieldDescriptor_t * pFieldDescriptors,
                                        OtaFieldValue_t * pFieldValues );
+
+DocParseErr_t parseOtaDocument( const char * pJson,
+                                uint32_t messageLength,
+                                const OtaMallocInterface_t * pMallocInterface,
+                                OtaFileContext_t * pFileContext );

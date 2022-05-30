@@ -74,14 +74,10 @@ void setControlInterface( OtaControlInterface_t * pControlInterface )
 }
 
 OtaErr_t setDataInterface( OtaDataInterface_t * pDataInterface,
-                           const uint8_t * pProtocol )
+                           bool mqttInJobDoc,
+                           bool httpInJobDoc )
 {
     OtaErr_t err = OtaErrInvalidDataProtocol;
-    bool httpInJobDoc;
-    bool mqttInJobDoc;
-
-    httpInJobDoc = ( strstr( ( const char * ) pProtocol, "\"HTTP\"" ) != NULL ) ? true : false;
-    mqttInJobDoc = ( strstr( ( const char * ) pProtocol, "\"MQTT\"" ) != NULL ) ? true : false;
 
     #if ( ( configENABLED_DATA_PROTOCOLS & OTA_DATA_OVER_MQTT ) && !( configENABLED_DATA_PROTOCOLS & OTA_DATA_OVER_HTTP ) )
         ( void ) httpInJobDoc;

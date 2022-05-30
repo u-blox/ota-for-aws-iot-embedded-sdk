@@ -3028,34 +3028,30 @@ void test_OTA_shutdownHandler_NullInterface()
 void test_OTA_setDataInterface_ValidInput( void )
 {
     OtaDataInterface_t dataInterface = { NULL, NULL, NULL, NULL };
-    uint8_t pProtocol[ OTA_PROTOCOL_BUFFER_SIZE ] = { 0 };
+    bool mqttInJobDoc;
+    bool httpInJobDoc;
 
-    memcpy( pProtocol, "[\"MQTT\"]", sizeof( "[\"MQTT\"]" ) );
-    TEST_ASSERT_EQUAL( OtaErrNone, setDataInterface( &dataInterface, pProtocol ) );
+    mqttInJobDoc = true;
+    httpInJobDoc = false;
+    TEST_ASSERT_EQUAL( OtaErrNone, setDataInterface( &dataInterface, mqttInJobDoc, httpInJobDoc ) );
     TEST_ASSERT_EQUAL( initFileTransfer_Mqtt, dataInterface.initFileTransfer );
     TEST_ASSERT_EQUAL( requestFileBlock_Mqtt, dataInterface.requestFileBlock );
     TEST_ASSERT_EQUAL( decodeFileBlock_Mqtt, dataInterface.decodeFileBlock );
     TEST_ASSERT_EQUAL( cleanupData_Mqtt, dataInterface.cleanup );
 
-    memcpy( pProtocol, "[\"HTTP\"]", sizeof( "[\"HTTP\"]" ) );
+    mqttInJobDoc = false;
+    httpInJobDoc = true;
     memset( &dataInterface, 0, sizeof( dataInterface ) );
-    TEST_ASSERT_EQUAL( OtaErrNone, setDataInterface( &dataInterface, pProtocol ) );
+    TEST_ASSERT_EQUAL( OtaErrNone, setDataInterface( &dataInterface, mqttInJobDoc, httpInJobDoc ) );
     TEST_ASSERT_EQUAL( initFileTransfer_Http, dataInterface.initFileTransfer );
     TEST_ASSERT_EQUAL( requestDataBlock_Http, dataInterface.requestFileBlock );
     TEST_ASSERT_EQUAL( decodeFileBlock_Http, dataInterface.decodeFileBlock );
     TEST_ASSERT_EQUAL( cleanupData_Http, dataInterface.cleanup );
 
-    memcpy( pProtocol, "[\"MQTT\",\"HTTP\"]", sizeof( "[\"MQTT\",\"HTTP\"]" ) );
+    mqttInJobDoc = true;
+    httpInJobDoc = true;
     memset( &dataInterface, 0, sizeof( dataInterface ) );
-    TEST_ASSERT_EQUAL( OtaErrNone, setDataInterface( &dataInterface, pProtocol ) );
-    TEST_ASSERT_NOT_EQUAL( NULL, dataInterface.initFileTransfer );
-    TEST_ASSERT_NOT_EQUAL( NULL, dataInterface.requestFileBlock );
-    TEST_ASSERT_NOT_EQUAL( NULL, dataInterface.decodeFileBlock );
-    TEST_ASSERT_NOT_EQUAL( NULL, dataInterface.cleanup );
-
-    memcpy( pProtocol, "[\"HTTP\",\"MQTT\"]", sizeof( "[\"HTTP\",\"MQTT\"]" ) );
-    memset( &dataInterface, 0, sizeof( dataInterface ) );
-    TEST_ASSERT_EQUAL( OtaErrNone, setDataInterface( &dataInterface, pProtocol ) );
+    TEST_ASSERT_EQUAL( OtaErrNone, setDataInterface( &dataInterface, mqttInJobDoc, httpInJobDoc ) );
     TEST_ASSERT_NOT_EQUAL( NULL, dataInterface.initFileTransfer );
     TEST_ASSERT_NOT_EQUAL( NULL, dataInterface.requestFileBlock );
     TEST_ASSERT_NOT_EQUAL( NULL, dataInterface.decodeFileBlock );
@@ -3069,24 +3065,8 @@ void test_OTA_setDataInterface_ValidInput( void )
 void test_OTA_setDataInterface_InvalidInput( void )
 {
     OtaDataInterface_t dataInterface = { NULL, NULL, NULL, NULL };
-    uint8_t pProtocol[ OTA_PROTOCOL_BUFFER_SIZE ] = { 0 };
 
-    memcpy( pProtocol, "invalid_protocol", sizeof( "invalid_protocol" ) );
-    TEST_ASSERT_EQUAL( OtaErrInvalidDataProtocol, setDataInterface( &dataInterface, pProtocol ) );
-    TEST_ASSERT_EQUAL( NULL, dataInterface.initFileTransfer );
-    TEST_ASSERT_EQUAL( NULL, dataInterface.requestFileBlock );
-    TEST_ASSERT_EQUAL( NULL, dataInterface.decodeFileBlock );
-    TEST_ASSERT_EQUAL( NULL, dataInterface.cleanup );
-
-    memcpy( pProtocol, "junkMQTT", sizeof( "junkMQTT" ) );
-    TEST_ASSERT_EQUAL( OtaErrInvalidDataProtocol, setDataInterface( &dataInterface, pProtocol ) );
-    TEST_ASSERT_EQUAL( NULL, dataInterface.initFileTransfer );
-    TEST_ASSERT_EQUAL( NULL, dataInterface.requestFileBlock );
-    TEST_ASSERT_EQUAL( NULL, dataInterface.decodeFileBlock );
-    TEST_ASSERT_EQUAL( NULL, dataInterface.cleanup );
-
-    memcpy( pProtocol, "HTTPjunk", sizeof( "HTTPjunk" ) );
-    TEST_ASSERT_EQUAL( OtaErrInvalidDataProtocol, setDataInterface( &dataInterface, pProtocol ) );
+    TEST_ASSERT_EQUAL( OtaErrInvalidDataProtocol, setDataInterface( &dataInterface, false, false ) );
     TEST_ASSERT_EQUAL( NULL, dataInterface.initFileTransfer );
     TEST_ASSERT_EQUAL( NULL, dataInterface.requestFileBlock );
     TEST_ASSERT_EQUAL( NULL, dataInterface.decodeFileBlock );
