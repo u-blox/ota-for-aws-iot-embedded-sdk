@@ -149,17 +149,18 @@ JSONStatus_t otajson_searchObjectFields( const char * pJson,
     return status;
 }
 
-DocParseErr_t otajson_SearchObject(const char * pJson,
+DocParseErr_t otajson_SearchField(const char * pJson,
                                 size_t jsonLength,
                                 const char * key,
                                 size_t keyLength,
                                 bool required,
-                                const char ** ppOut,
-                                size_t * pOutLength)
+                                JSONTypes_t expectedType,
+                                const char ** ppValue,
+                                size_t * pValueLength)
 {
     DocParseErr_t err = DocParseErrNone;
     JSONStatus_t status;
-    const char * value;
+    const char * pValue;
     size_t valueLength;
     JSONTypes_t valueType;
 
@@ -167,14 +168,14 @@ DocParseErr_t otajson_SearchObject(const char * pJson,
         jsonLength,
         key,
         keyLength,
-        &value,
+        &pValue,
         &valueLength,
         &valueType);
     if (status == JSONSuccess) {
-        if (valueType == JSONObject)
+        if (valueType == expectedType)
         {
-            *ppOut = value;
-            *pOutLength = valueLength;
+            *ppValue = pValue;
+            *pValueLength = valueLength;
         }
         else
         {
@@ -191,6 +192,18 @@ DocParseErr_t otajson_SearchObject(const char * pJson,
     }
 
     return err;
+
+}
+
+DocParseErr_t otajson_SearchObject(const char * pJson,
+                                size_t jsonLength,
+                                const char * key,
+                                size_t keyLength,
+                                bool required,
+                                const char ** ppOut,
+                                size_t * pOutLength)
+{
+    return otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONObject, ppOut, pOutLength);
 }
 
 DocParseErr_t otajson_SearchStringTerminate(const char * pJson,
@@ -198,51 +211,26 @@ DocParseErr_t otajson_SearchStringTerminate(const char * pJson,
                                 const char * key,
                                 size_t keyLength,
                                 bool required,
-                                char * out,
+                                char * pOut,
                                 size_t outLength)
 {
-    DocParseErr_t err = DocParseErrNone;
-    JSONStatus_t status;
-    const char * value;
+    DocParseErr_t err;
+    const char * pValue;
     size_t valueLength;
-    JSONTypes_t valueType;
 
-    status = JSON_SearchConst(pJson,
-        jsonLength,
-        key,
-        keyLength,
-        &value,
-        &valueLength,
-        &valueType);
-    if (status == JSONSuccess) {
-        if (valueType == JSONString)
+    err = otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
+    if (err == DocParseErrNone && pOut != NULL)
+    {
+        /* The output is expecting a NUL terminated string, so the raw value must be at least one byte smaller. */
+        if (valueLength < outLength)
         {
-            if (out != NULL)
-            {
-                /* The output is expecting a NUL terminated string, so the raw value must be one byte smaller. */
-                if (valueLength < outLength)
-                {
-                    memcpy(out, value, valueLength);
-                    out[valueLength] = '\0';
-                }
-                else
-                {
-                    err = DocParseErrUserBufferInsuffcient;
-                }
-            }
+            memcpy(pOut, pValue, valueLength);
+            pOut[valueLength] = '\0';
         }
         else
         {
-            err = DocParseErrFieldTypeMismatch;
+            err = DocParseErrUserBufferInsuffcient;
         }
-    }
-    else if (!required && (status == JSONNotFound))
-    {
-        err = DocParseErrNotFound;
-    }
-    else
-    {
-        err = DocParseErrMalformedDoc;
     }
 
     return err;
@@ -258,10 +246,8 @@ DocParseErr_t otajson_SearchStringTerminateRealloc(const char * pJson,
 {
     DocParseErr_t err = DocParseErrNone;
     char * pOut = NULL;
-    JSONStatus_t status;
-    const char * value;
+    const char * pValue;
     size_t valueLength;
-    JSONTypes_t valueType;
 
     if (*ppOut != NULL)
     {
@@ -269,40 +255,20 @@ DocParseErr_t otajson_SearchStringTerminateRealloc(const char * pJson,
         *ppOut = NULL;
     }
 
-    status = JSON_SearchConst(pJson,
-        jsonLength,
-        key,
-        keyLength,
-        &value,
-        &valueLength,
-        &valueType);
-    if (status == JSONSuccess) {
-        if (valueType == JSONString)
+    err = otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
+    if (err == DocParseErrNone)
+    {
+        pOut = pMallocInterface->malloc(valueLength + 1);
+        if (pOut != NULL)
         {
-            pOut = pMallocInterface->malloc(valueLength + 1);
-            if (pOut != NULL)
-            {
-                memcpy(pOut, value, valueLength);
-                pOut[valueLength] = '\0';
-                *ppOut = pOut;
-            }
-            else
-            {
-                err = DocParseErrOutOfMemory;
-            }
+            memcpy(pOut, pValue, valueLength);
+            pOut[valueLength] = '\0';
+            *ppOut = pOut;
         }
         else
         {
-            err = DocParseErrFieldTypeMismatch;
+            err = DocParseErrOutOfMemory;
         }
-    }
-    else if (!required && (status == JSONNotFound))
-    {
-        err = DocParseErrNotFound;
-    }
-    else
-    {
-        err = DocParseErrMalformedDoc;
     }
 
     return err;
@@ -377,36 +343,15 @@ DocParseErr_t otajson_SearchUint32(const char * pJson,
                                 bool required,
                                 uint32_t * out)
 {
-    DocParseErr_t err = DocParseErrNone;
-    JSONStatus_t status;
-    const char * outValue;
-    size_t outValueLength;
-    JSONTypes_t outType;
+    DocParseErr_t err;
+    const char * pValue;
+    size_t valueLength;
 
-    status = JSON_SearchConst(pJson,
-        jsonLength,
-        key,
-        keyLength,
-        &outValue,
-        &outValueLength,
-        &outType);
-    if (status == JSONSuccess) {
-        if (outType == JSONNumber)
-        {
-            err = Uint32FromString(outValue, outValueLength, out);
-        }
-        else
-        {
-            err = DocParseErrFieldTypeMismatch;
-        }
-    }
-    else if (!required && (status == JSONNotFound))
+    err = otajson_SearchField(pJson, jsonLength, key, keyLength, required, JSONNumber, &pValue, &valueLength);
+
+    if (err == DocParseErrNone)
     {
-        err = DocParseErrNotFound;
-    }
-    else
-    {
-        err = DocParseErrMalformedDoc;
+        err = Uint32FromString(pValue, valueLength, out);
     }
 
     return err;
@@ -418,64 +363,44 @@ DocParseErr_t otajson_SearchSignature(const char * pJson,
                                         size_t keyLength,
                                         Sig256_t * pSignature)
 {
-    DocParseErr_t err = DocParseErrNone;
-    JSONStatus_t status;
-    const char * value;
+    DocParseErr_t err;
+    const char * pValue;
     size_t valueLength;
-    JSONTypes_t valueType;
     Base64Status_t decodeStatus;
     size_t decodedLength;
 
-    status = JSON_SearchConst(pJson,
-        jsonLength,
-        key,
-        keyLength,
-        &value,
-        &valueLength,
-        &valueType);
-    if (status == JSONSuccess) {
-        if (valueType == JSONString)
+    /* Note: signatures are always optional. */
+    err = otajson_SearchField(
+        pJson, jsonLength, key, keyLength, OTA_JOB_PARAM_OPTIONAL, JSONString, &pValue, &valueLength);
+
+    if (err == DocParseErrNone)
+    {
+        decodeStatus = base64Decode( pSignature->data,
+                                    sizeof( pSignature->data ),
+                                    &decodedLength,
+                                    ( const uint8_t * ) pValue,
+                                    valueLength );
+
+        if( decodeStatus != Base64Success )
         {
-            decodeStatus = base64Decode( pSignature->data,
-                                        sizeof( pSignature->data ),
-                                        &decodedLength,
-                                        ( const uint8_t * ) value,
-                                        valueLength );
-
-            if( decodeStatus != Base64Success )
-            {
-                /* Stop processing on error. */
-                LogError( ( "Failed to decode Base64 data: "
-                            "base64Decode returned error: "
-                            "error=%d",
-                            base64Status ) );
-                err = DocParseErrBase64Decode;
-            }
-            else
-            {
-                char pLogBuffer[ 33 ];
-                ( void ) strncpy( pLogBuffer, value, 32 );
-                pLogBuffer[ 32 ] = '\0';
-                LogInfo( ( "Extracted parameter [ %s: %s... ]",
-                        OTA_JsonFileSignatureKey,
-                        pLogBuffer ) );
-
-                pSignature->size = (uint16_t)decodedLength;
-            }
+            /* Stop processing on error. */
+            LogError( ( "Failed to decode Base64 data: "
+                        "base64Decode returned error: "
+                        "error=%d",
+                        base64Status ) );
+            err = DocParseErrBase64Decode;
         }
         else
         {
-            err = DocParseErrFieldTypeMismatch;
+            char pLogBuffer[ 33 ];
+            ( void ) strncpy( pLogBuffer, pValue, 32 );
+            pLogBuffer[ 32 ] = '\0';
+            LogInfo( ( "Extracted parameter [ %s: %s... ]",
+                    OTA_JsonFileSignatureKey,
+                    pLogBuffer ) );
+
+            pSignature->size = (uint16_t)decodedLength;
         }
-    }
-    else if (status == JSONNotFound)
-    {
-        /* Note: the signature field is always optional. */
-        err = DocParseErrNotFound;
-    }
-    else
-    {
-        err = DocParseErrMalformedDoc;
     }
 
     return err;
@@ -681,46 +606,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
 
     return err;
 }
-#if 0
-#define JOBKEY_FILES0_FILE_PATH          "filepath"                     /*!< @brief Path to store the image on the device. */
-#define JOBKEY_FILES0_FILE_SIZE          "filesize"                     /*!< @brief Size of the file to be downloaded. */
-#define JOBKEY_FILES0_FILE_ID            "fileid"                       /*!< @brief Used to identify the file in case of multiple file downloads. */
-#define JOBKEY_FILES0_FILE_ATTRIBUTE     "attr"                         /*!< @brief Additional file attributes. */
-#define JOBKEY_FILES0_FILE_CERT_NAME     "certfile"                     /*!< @brief Location of the certificate on the device to find code signing. */
-#define JOBKEY_FILES0_UPDATE_DATA_URL    "update_data_url"              /*!< @brief S3 bucket presigned url to fetch the image from . */
-#define JOBKEY_FILES0_AUTH_SCHEME        "auth_scheme"                  /*!< @brief Authentication scheme for downloading a the image over HTTP. */
-#define JOBKEY_FILES0_FILETYPE           "fileType"                     /*!< @brief Used to identify the file in case of multi file type support. */
-#endif
 
-
-/* Extract the desired fields from the JSON document based on the specified document model. */
-
-/*
- * original model
-static const JsonDocParam_t otaJobDocModelParamStructure[ OTA_NUM_JOB_PARAMS ] =
-{
-    { OTA_JSON_CLIENT_TOKEN_KEY,    OTA_JOB_PARAM_OPTIONAL, OTA_DONT_STORE_PARAM,         OTA_DONT_STORE_PARAM,  ModelParamTypeStringInDoc },
-    { OTA_JSON_TIMESTAMP_KEY,       OTA_JOB_PARAM_OPTIONAL, OTA_DONT_STORE_PARAM,         OTA_DONT_STORE_PARAM,  ModelParamTypeUInt32      },
-    { OTA_JSON_EXECUTION_KEY,       OTA_JOB_PARAM_REQUIRED, OTA_DONT_STORE_PARAM,         OTA_DONT_STORE_PARAM,  ModelParamTypeObject      },
-    { OTA_JSON_JOB_ID_KEY,          OTA_JOB_PARAM_REQUIRED, U16_OFFSET( OtaFileContext_t, pJobName ),            U16_OFFSET( OtaFileContext_t, jobNameMaxSize ), ModelParamTypeStringCopy},
-    { OTA_JSON_STATUS_DETAILS_KEY,  OTA_JOB_PARAM_OPTIONAL, OTA_DONT_STORE_PARAM,         OTA_DONT_STORE_PARAM,  ModelParamTypeObject      },
-    { OTA_JSON_SELF_TEST_KEY,       OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, isInSelfTest ),        OTA_DONT_STORE_PARAM, ModelParamTypeIdent},
-    { OTA_JSON_UPDATED_BY_KEY,      OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, updaterVersion ),      OTA_DONT_STORE_PARAM, ModelParamTypeUInt32},
-    { OTA_JSON_JOB_DOC_KEY,         OTA_JOB_PARAM_REQUIRED, OTA_DONT_STORE_PARAM,         OTA_DONT_STORE_PARAM,  ModelParamTypeObject      },
-    { OTA_JSON_OTA_UNIT_KEY,        OTA_JOB_PARAM_REQUIRED, OTA_DONT_STORE_PARAM,         OTA_DONT_STORE_PARAM,  ModelParamTypeObject      },
-    { OTA_JSON_STREAM_NAME_KEY,     OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, pStreamName ),         U16_OFFSET( OtaFileContext_t, streamNameMaxSize ), ModelParamTypeStringCopy},
-    { OTA_JSON_PROTOCOLS_KEY,       OTA_JOB_PARAM_REQUIRED, U16_OFFSET( OtaFileContext_t, pProtocols ),          U16_OFFSET( OtaFileContext_t, protocolMaxSize ), ModelParamTypeArrayCopy},
-    { OTA_JSON_FILE_PATH_KEY,       OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, pFilePath ),           U16_OFFSET( OtaFileContext_t, filePathMaxSize ), ModelParamTypeStringCopy},
-    { OTA_JSON_FILE_SIZE_KEY,       OTA_JOB_PARAM_REQUIRED, U16_OFFSET( OtaFileContext_t, fileSize ),            OTA_DONT_STORE_PARAM, ModelParamTypeUInt32},
-    { OTA_JSON_FILE_ID_KEY,         OTA_JOB_PARAM_REQUIRED, U16_OFFSET( OtaFileContext_t, serverFileID ),        OTA_DONT_STORE_PARAM, ModelParamTypeUInt32},
-    { OTA_JSON_FILE_CERT_NAME_KEY,  OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, pCertFilepath ),       U16_OFFSET( OtaFileContext_t, certFilePathMaxSize ), ModelParamTypeStringCopy},
-    { OTA_JSON_UPDATE_DATA_URL_KEY, OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, pUpdateUrlPath ),      U16_OFFSET( OtaFileContext_t, updateUrlMaxSize ), ModelParamTypeStringCopy},
-    { OTA_JSON_AUTH_SCHEME_KEY,     OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, pAuthScheme ),         U16_OFFSET( OtaFileContext_t, authSchemeMaxSize ), ModelParamTypeStringCopy},
-    { OTA_JsonFileSignatureKey,     OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, pSignature ),          OTA_DONT_STORE_PARAM, ModelParamTypeSigBase64},
-    { OTA_JSON_FILE_ATTRIBUTE_KEY,  OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, fileAttributes ),      OTA_DONT_STORE_PARAM, ModelParamTypeUInt32},
-    { OTA_JSON_FILETYPE_KEY,        OTA_JOB_PARAM_OPTIONAL, U16_OFFSET( OtaFileContext_t, fileType ),            OTA_DONT_STORE_PARAM, ModelParamTypeUInt32}
-};
- */
 
 /* top level */
 #define JOBKEY_CLIENT_TOKEN       "clientToken"                                              /*!< @brief Client token. */
