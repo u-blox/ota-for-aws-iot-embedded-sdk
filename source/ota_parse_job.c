@@ -406,6 +406,39 @@ DocParseErr_t otajson_SearchSignature(const char * pJson,
     return err;
 }
 
+/*
+ * String constants for parsing OTA job documents.
+ */
+
+/* top level */
+#define JOBKEY_CLIENT_TOKEN       "clientToken"                                              /*!< @brief Client token. */
+#define JOBKEY_TIMESTAMP          "timestamp"                                                /*!< @brief Used to calculate timeout and time spent on the operation. */
+#define JOBKEY_EXECUTION          "execution"                                                /*!< @brief Contains job execution parameters . */
+
+/* "execution." */
+#define JOBKEY_EXECUTION_JOB_ID             "jobId"          /*!< @brief Name of the job. */
+#define JOBKEY_EXECUTION_STATUS_DETAILS     "statusDetails"  /*!< @brief Current status of the job. */
+#define JOBKEY_EXECUTION_JOB_DOC_AFR_OTA    "jobDocument.afr_ota"    /*!< @brief Parameters that specify the nature of the job. */
+
+/* "execution.statusDetails." */
+#define JOBKEY_STATUS_DETAILS_SELF_TEST          "self_test" /*!< @brief Specifies if the platform and service is is selftest. */
+#define JOBKEY_STATUS_DETAILS_UPDATED_BY         "updatedBy" /*!< @brief Parameter to specify update status. */
+
+/* "execution.jobDocument.afr_ota." */
+#define JOBKEY_AFROTA_PROTOCOLS          "protocols"       /*!< @brief Protocols over which the download can take place. */
+#define JOBKEY_AFROTA_FILES0             "files[0]"        /*!< @brief Parameters for specifying file configurations. */
+#define JOBKEY_AFROTA_STREAM_NAME        "streamname"      /*!< @brief Name of the stream used for download. */
+
+/* "execution.jobDocument.afr_ota.files[0]." */
+#define JOBKEY_FILES0_FILE_PATH          "filepath"                     /*!< @brief Path to store the image on the device. */
+#define JOBKEY_FILES0_FILE_SIZE          "filesize"                     /*!< @brief Size of the file to be downloaded. */
+#define JOBKEY_FILES0_FILE_ID            "fileid"                       /*!< @brief Used to identify the file in case of multiple file downloads. */
+#define JOBKEY_FILES0_FILE_ATTRIBUTES    "attr"                         /*!< @brief Additional file attributes. */
+#define JOBKEY_FILES0_FILE_CERT_FILE     "certfile"                     /*!< @brief Location of the certificate on the device to find code signing. */
+#define JOBKEY_FILES0_UPDATE_DATA_URL    "update_data_url"              /*!< @brief S3 bucket presigned url to fetch the image from . */
+#define JOBKEY_FILES0_AUTH_SCHEME        "auth_scheme"                  /*!< @brief Authentication scheme for downloading a the image over HTTP. */
+#define JOBKEY_FILES0_FILETYPE           "fileType"                     /*!< @brief Used to identify the file in case of multi file type support. */
+
 DocParseErr_t parseOtaDocument( const char * pJson,
                                 uint32_t messageLength,
                                 const OtaMallocInterface_t * pMallocInterface,
@@ -421,26 +454,28 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     const char * pFiles0Json = NULL;
     size_t files0JsonLength = 0;
 
+    #define CONST_KEY( tok ) tok, CONST_STRLEN(tok)
+
     /*
      * Parse the top level fields.
      */
 
     /* "clientToken", an optional string that isn't used. */
     err = otajson_SearchStringTerminate(
-        pJson, messageLength, "clientToken", sizeof("clientToken") - 1, OTA_JOB_PARAM_OPTIONAL, NULL, 0);
+        pJson, messageLength, CONST_KEY(JOBKEY_CLIENT_TOKEN), OTA_JOB_PARAM_OPTIONAL, NULL, 0);
 
     /* "timestamp", an optional UInt32 that isn't used. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchUint32(
-            pJson, messageLength, "timestamp", sizeof("timestamp") - 1, OTA_JOB_PARAM_OPTIONAL, NULL);
+            pJson, messageLength, CONST_KEY(JOBKEY_TIMESTAMP), OTA_JOB_PARAM_OPTIONAL, NULL);
     }
 
     /* "execution", a required object. */
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchObject(
-            pJson, messageLength, "execution", sizeof("execution") - 1, OTA_JOB_PARAM_REQUIRED, &pExecutionJson, &executionJsonLength);
+            pJson, messageLength, CONST_KEY(JOBKEY_EXECUTION), OTA_JOB_PARAM_REQUIRED, &pExecutionJson, &executionJsonLength);
     }
 
     /*
@@ -452,7 +487,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     {
         assert(pExecutionJson != NULL);
         err = otajson_SearchStringTerminate(
-            pExecutionJson, executionJsonLength, "jobId", sizeof("jobId") - 1, OTA_JOB_PARAM_REQUIRED,
+            pExecutionJson, executionJsonLength, CONST_KEY(JOBKEY_EXECUTION_JOB_ID), OTA_JOB_PARAM_REQUIRED,
             (char *)pFileContext->pJobName, pFileContext->jobNameMaxSize);
     }
 
@@ -460,7 +495,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchObject(
-            pExecutionJson, executionJsonLength, "statusDetails", sizeof("statusDetails") - 1, OTA_JOB_PARAM_OPTIONAL,
+            pExecutionJson, executionJsonLength, CONST_KEY(JOBKEY_EXECUTION_STATUS_DETAILS), OTA_JOB_PARAM_OPTIONAL,
             &pStatusDetailsJson, &statusDetailsJsonLength);
     }
 
@@ -468,7 +503,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchObject(
-            pExecutionJson, executionJsonLength, "jobDocument.afr_ota", sizeof("jobDocument.afr_ota") - 1, OTA_JOB_PARAM_REQUIRED,
+            pExecutionJson, executionJsonLength, CONST_KEY(JOBKEY_EXECUTION_JOB_DOC_AFR_OTA), OTA_JOB_PARAM_REQUIRED,
             &pAfrOtaJson, &afrOtaJsonLength);
     }
 
@@ -482,7 +517,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
         if (err == DocParseErrNone || err == DocParseErrNotFound)
         {
             err = otajson_SearchStringTerminate(
-                pStatusDetailsJson, statusDetailsJsonLength, "self_test", sizeof("self_test") - 1, OTA_JOB_PARAM_OPTIONAL, NULL, 0);
+                pStatusDetailsJson, statusDetailsJsonLength, CONST_KEY(JOBKEY_STATUS_DETAILS_SELF_TEST), OTA_JOB_PARAM_OPTIONAL, NULL, 0);
             if (err == DocParseErrNone)
             {
                 pFileContext->isInSelfTest = true;
@@ -493,7 +528,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
         if (err == DocParseErrNone || err == DocParseErrNotFound)
         {
             err = otajson_SearchUint32(
-                pStatusDetailsJson, statusDetailsJsonLength, "updatedBy", sizeof("updatedBy") - 1, OTA_JOB_PARAM_OPTIONAL,
+                pStatusDetailsJson, statusDetailsJsonLength, CONST_KEY(JOBKEY_STATUS_DETAILS_UPDATED_BY), OTA_JOB_PARAM_OPTIONAL,
                 &pFileContext->updaterVersion);
         }
     }
@@ -506,7 +541,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchStringTerminateMaybeRealloc(
-            pAfrOtaJson, afrOtaJsonLength, "streamname", sizeof("streamname") - 1, OTA_JOB_PARAM_OPTIONAL,
+            pAfrOtaJson, afrOtaJsonLength, CONST_KEY(JOBKEY_AFROTA_STREAM_NAME), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pStreamName, pFileContext->streamNameMaxSize);
     }
 
@@ -514,7 +549,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchStringTerminate(
-            pAfrOtaJson, afrOtaJsonLength, "protocols", sizeof("protocols") - 1, OTA_JOB_PARAM_REQUIRED,
+            pAfrOtaJson, afrOtaJsonLength, CONST_KEY(JOBKEY_AFROTA_PROTOCOLS), OTA_JOB_PARAM_REQUIRED,
             (char *)pFileContext->pProtocols, pFileContext->protocolMaxSize);
     }
 
@@ -522,7 +557,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchObject(
-            pAfrOtaJson, afrOtaJsonLength, "files[0]", sizeof("files[0]") - 1, OTA_JOB_PARAM_REQUIRED,
+            pAfrOtaJson, afrOtaJsonLength, CONST_KEY(JOBKEY_AFROTA_FILES0), OTA_JOB_PARAM_REQUIRED,
             &pFiles0Json, &files0JsonLength);
     }
 
@@ -534,7 +569,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchStringTerminateMaybeRealloc(
-            pFiles0Json, files0JsonLength, "filepath", sizeof("filepath") - 1, OTA_JOB_PARAM_OPTIONAL,
+            pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_PATH), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pFilePath, pFileContext->filePathMaxSize);
     }
 
@@ -542,7 +577,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchUint32(
-            pFiles0Json, files0JsonLength, "filesize", sizeof("filesize") - 1, OTA_JOB_PARAM_REQUIRED,
+            pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_SIZE), OTA_JOB_PARAM_REQUIRED,
             &pFileContext->fileSize);
     }
 
@@ -550,7 +585,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchUint32(
-            pFiles0Json, files0JsonLength, "fileid", sizeof("fileid") - 1, OTA_JOB_PARAM_REQUIRED,
+            pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_ID), OTA_JOB_PARAM_REQUIRED,
             &pFileContext->serverFileID);
     }
 
@@ -558,7 +593,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchStringTerminateMaybeRealloc(
-            pFiles0Json, files0JsonLength, "certfile", sizeof("certfile") - 1, OTA_JOB_PARAM_OPTIONAL,
+            pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_CERT_FILE), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pCertFilepath, pFileContext->certFilePathMaxSize);
     }
 
@@ -566,7 +601,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchStringTerminateMaybeRealloc(
-            pFiles0Json, files0JsonLength, "update_data_url", sizeof("update_data_url") - 1, OTA_JOB_PARAM_OPTIONAL,
+            pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_UPDATE_DATA_URL), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pUpdateUrlPath, pFileContext->updateUrlMaxSize);
     }
 
@@ -574,7 +609,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchStringTerminateMaybeRealloc(
-            pFiles0Json, files0JsonLength, "auth_scheme", sizeof("auth_scheme") - 1, OTA_JOB_PARAM_OPTIONAL,
+            pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_AUTH_SCHEME), OTA_JOB_PARAM_OPTIONAL,
             pMallocInterface, (char **)&pFileContext->pAuthScheme, pFileContext->authSchemeMaxSize);
     }
 
@@ -592,7 +627,7 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchUint32(
-            pFiles0Json, files0JsonLength, "attr", sizeof("attr") - 1, OTA_JOB_PARAM_OPTIONAL,
+            pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILE_ATTRIBUTES), OTA_JOB_PARAM_OPTIONAL,
             &pFileContext->fileAttributes);
     }
 
@@ -600,45 +635,14 @@ DocParseErr_t parseOtaDocument( const char * pJson,
     if (err == DocParseErrNone || err == DocParseErrNotFound)
     {
         err = otajson_SearchUint32(
-            pFiles0Json, files0JsonLength, "fileType", sizeof("fileType") - 1, OTA_JOB_PARAM_OPTIONAL,
+            pFiles0Json, files0JsonLength, CONST_KEY(JOBKEY_FILES0_FILETYPE), OTA_JOB_PARAM_OPTIONAL,
             &pFileContext->fileType);
     }
 
+    #undef CONST_KEY
+
     return err;
 }
-
-
-/* top level */
-#define JOBKEY_CLIENT_TOKEN       "clientToken"                                              /*!< @brief Client token. */
-#define JOBKEY_TIMESTAMP          "timestamp"                                                /*!< @brief Used to calculate timeout and time spent on the operation. */
-#define JOBKEY_EXECUTION          "execution"                                                /*!< @brief Contains job execution parameters . */
-
-/* "execution." */
-#define JOBKEY_EXECUTION_JOB_ID             "jobId"          /*!< @brief Name of the job. */
-#define JOBKEY_EXECUTION_STATUS_DETAILS     "statusDetails"  /*!< @brief Current status of the job. */
-#define JOBKEY_EXECUTION_JOB_DOC_AFR_OTA    "jobDocument.afr_ota"    /*!< @brief Parameters that specify the nature of the job. */
-
-/* "execution.statusDetails." */
-#define JOBKEY_EXECUTION_STATUS_DETAILS_SELF_TEST          "self_test" /*!< @brief Specifies if the platform and service is is selftest. */
-#define JOBKEY_EXECUTION_STATUS_DETAILS_UPDATED_BY         "updatedBy" /*!< @brief Parameter to specify update status. */
-
-/* "execution.jobDocument.afr_ota." */
-#define JOBKEY_AFROTA_PROTOCOLS          "protocols"       /*!< @brief Protocols over which the download can take place. */
-#define JOBKEY_AFROTA_FILES0             "files[0]"        /*!< @brief Parameters for specifying file configurations. */
-#define JOBKEY_AFROTA_STREAM_NAME        "streamname"      /*!< @brief Name of the stream used for download. */
-
-/* "execution.jobDocument.afr_ota.files[0]." */
-#define JOBKEY_FILES0_FILE_PATH          "filepath"                     /*!< @brief Path to store the image on the device. */
-#define JOBKEY_FILES0_FILE_SIZE          "filesize"                     /*!< @brief Size of the file to be downloaded. */
-#define JOBKEY_FILES0_FILE_ID            "fileid"                       /*!< @brief Used to identify the file in case of multiple file downloads. */
-#define JOBKEY_FILES0_FILE_ATTRIBUTE     "attr"                         /*!< @brief Additional file attributes. */
-#define JOBKEY_FILES0_FILE_CERT_NAME     "certfile"                     /*!< @brief Location of the certificate on the device to find code signing. */
-#define JOBKEY_FILES0_UPDATE_DATA_URL    "update_data_url"              /*!< @brief S3 bucket presigned url to fetch the image from . */
-#define JOBKEY_FILES0_AUTH_SCHEME        "auth_scheme"                  /*!< @brief Authentication scheme for downloading a the image over HTTP. */
-#define JOBKEY_FILES0_FILETYPE           "fileType"                     /*!< @brief Used to identify the file in case of multi file type support. */
-
-
-#define JOBDOCCONSTKEY( tok ) tok, sizeof(tok) - 1
 
 
  DocParseErr_t parseJSONbyModel( const char * pJson,
