@@ -131,29 +131,10 @@
  * @addtogroup ota_constants
  * @{
  */
-#define OTA_JSON_SEPARATOR              "."                                                        /*!< @brief Separator used to define nested keys. */
-#define OTA_JSON_CLIENT_TOKEN_KEY       "clientToken"                                              /*!< @brief Client token. */
-#define OTA_JSON_TIMESTAMP_KEY          "timestamp"                                                /*!< @brief Used to calculate timeout and time spent on the operation. */
-#define OTA_JSON_EXECUTION_KEY          "execution"                                                /*!< @brief Contains job execution parameters . */
-#define OTA_JSON_JOB_ID_KEY             OTA_JSON_EXECUTION_KEY OTA_JSON_SEPARATOR "jobId"          /*!< @brief Name of the job. */
-#define OTA_JSON_STATUS_DETAILS_KEY     OTA_JSON_EXECUTION_KEY OTA_JSON_SEPARATOR "statusDetails"  /*!< @brief Current status of the job. */
-#define OTA_JSON_SELF_TEST_KEY          OTA_JSON_STATUS_DETAILS_KEY OTA_JSON_SEPARATOR "self_test" /*!< @brief Specifies if the platform and service is is selftest. */
-#define OTA_JSON_UPDATED_BY_KEY         OTA_JSON_STATUS_DETAILS_KEY OTA_JSON_SEPARATOR "updatedBy" /*!< @brief Parameter to specify update status. */
-#define OTA_JSON_UPDATED_BY_KEY_ONLY    "updatedBy"                                                /*!< @brief Specifies if the platform and service is is selftest. Not searched in sub fields. */
-#define OTA_JSON_SELF_TEST_KEY_ONLY     "self_test"                                                /*!< @brief Parameter to specify update status. Not searched in sub fields. */
-#define OTA_JSON_JOB_DOC_KEY            OTA_JSON_EXECUTION_KEY OTA_JSON_SEPARATOR "jobDocument"    /*!< @brief Parameters that specify the nature of the job. */
-#define OTA_JSON_OTA_UNIT_KEY           OTA_JSON_JOB_DOC_KEY OTA_JSON_SEPARATOR "afr_ota"          /*!< @brief afr-ota. */
-#define OTA_JSON_PROTOCOLS_KEY          OTA_JSON_OTA_UNIT_KEY OTA_JSON_SEPARATOR "protocols"       /*!< @brief Protocols over which the download can take place. */
-#define OTA_JSON_FILE_GROUP_KEY         OTA_JSON_OTA_UNIT_KEY OTA_JSON_SEPARATOR "files"           /*!< @brief Parameters for specifying file configurations. */
-#define OTA_JSON_STREAM_NAME_KEY        OTA_JSON_OTA_UNIT_KEY OTA_JSON_SEPARATOR "streamname"      /*!< @brief Name of the stream used for download. */
-#define OTA_JSON_FILE_PATH_KEY          OTA_JSON_FILE_GROUP_KEY "[0].filepath"                     /*!< @brief Path to store the image on the device. */
-#define OTA_JSON_FILE_SIZE_KEY          OTA_JSON_FILE_GROUP_KEY "[0].filesize"                     /*!< @brief Size of the file to be downloaded. */
-#define OTA_JSON_FILE_ID_KEY            OTA_JSON_FILE_GROUP_KEY "[0].fileid"                       /*!< @brief Used to identify the file in case of multiple file downloads. */
-#define OTA_JSON_FILE_ATTRIBUTE_KEY     OTA_JSON_FILE_GROUP_KEY "[0].attr"                         /*!< @brief Additional file attributes. */
-#define OTA_JSON_FILE_CERT_NAME_KEY     OTA_JSON_FILE_GROUP_KEY "[0].certfile"                     /*!< @brief Location of the certificate on the device to find code signing. */
-#define OTA_JSON_UPDATE_DATA_URL_KEY    OTA_JSON_FILE_GROUP_KEY "[0].update_data_url"              /*!< @brief S3 bucket presigned url to fetch the image from . */
-#define OTA_JSON_AUTH_SCHEME_KEY        OTA_JSON_FILE_GROUP_KEY "[0].auth_scheme"                  /*!< @brief Authentication scheme for downloading a the image over HTTP. */
-#define OTA_JSON_FILETYPE_KEY           OTA_JSON_FILE_GROUP_KEY "[0].fileType"                     /*!< @brief Used to identify the file in case of multi file type support. */
+#define OTA_JSON_JOB_ID_KEY             "execution.jobId"          /*!< @brief Name of the job. */
+#define OTA_JSON_JOB_DOC_KEY            "execution.jobDocument"    /*!< @brief Parameters that specify the nature of the job. */
+#define OTA_JSON_UPDATED_BY_KEY_ONLY    "updatedBy"                /*!< @brief Specifies if the platform and service is is selftest. Not searched in sub fields. */
+#define OTA_JSON_SELF_TEST_KEY_ONLY     "self_test"                /*!< @brief Parameter to specify update status. Not searched in sub fields. */
 /** @} */
 
 /**
@@ -239,50 +220,6 @@ typedef enum
     JobReasonAborted,        /* Set job state to Failed. */
     NumJobReasons
 } OtaJobReason_t;
-
-/**
- * @ingroup ota_private_struct_types
- * @brief JSON document parameter to store the details of keys and where to store them.
- *
- * This is a document parameter structure used by the document model. It determines
- * the type of parameter specified by the key name and where to store the parameter
- * locally when it is extracted from the JSON document. It also contains the
- * expected Jasmine type of the value field for validation.
- *
- * @note The destOffset field is an offset into the models context structure.
- */
-typedef struct
-{
-    const char * pSrcKey;                  /*!< Expected key name. */
-    const bool required;                   /*!< If true, this parameter must exist in the document. */
-    uint16_t pDestOffset;                  /*!< Offset to where we will store the value, if not ~0. */
-    uint16_t pDestSizeOffset;              /*!< Offset to where we will store the value, if not ~0. */
-    const ModelParamType_t modelParamType; /*!< We extract the value, if found, based on this type. */
-} JsonDocParam_t;
-
-/**
- * @ingroup ota_private_struct_types
- * @brief JSON document model to store the details of parameters expected in the job document.
- *
- * The document model is currently limited to 32 parameters per the implementation,
- * although it may be easily expanded to more in the future by simply expanding
- * the parameter bitmap.
- *
- * The document model is used to control what JSON parameters are expected from a
- * document and where to store the parameters, if desired, in a destination context.
- * We currently only store parameters into an OtaFileContext_t but it could be used
- * for any structure since we don't use a type pointer.
- */
-typedef struct
-{
-    void * contextBase;              /*!< The base address of the destination OTA context structure. */
-    uint32_t contextSize;            /*!< The size, in bytes, of the destination context structure. */
-    const JsonDocParam_t * pBodyDef; /*!< Pointer to the document model body definition. */
-    uint16_t numModelParams;         /*!< The number of entries in the document model (limited to 32). */
-    uint32_t paramsReceivedBitmap;   /*!< Bitmap of the parameters received based on the model. */
-    uint32_t paramsRequiredBitmap;   /*!< Bitmap of the parameters required from the model. */
-} JsonDocModel_t;
-
 /**
  * @ingroup ota_private_struct_types
  * @brief This is the OTA statistics structure to hold useful info.

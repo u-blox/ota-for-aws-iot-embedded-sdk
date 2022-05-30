@@ -140,7 +140,6 @@ typedef enum OtaJobParseErr
     OtaJobParseErrUpdateCurrentJob,    /* @brief We're already busy with the reported job ID. */
     OtaJobParseErrZeroFileSize,        /* @brief Job document specified a zero sized file. This is not allowed. */
     OtaJobParseErrNonConformingJobDoc, /* @brief The job document failed to fulfill the model requirements. */
-    OtaJobParseErrBadModelInitParams,  /* @brief There was an invalid initialization parameter used in the document model. */
     OtaJobParseErrNoContextAvailable,  /* @brief There was not an OTA context available. */
     OtaJobParseErrNoActiveJobs         /* @brief No active jobs are available in the service. */
 } OtaJobParseErr_t;

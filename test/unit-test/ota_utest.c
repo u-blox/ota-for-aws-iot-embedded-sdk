@@ -159,9 +159,6 @@ extern OtaDataInterface_t otaDataInterface;
  * protocol function pointers. */
 extern OtaControlInterface_t otaControlInterface;
 
-/* The OTA job document model. */
-extern const JsonDocParam_t * otaJobDocModelParamStructure;
-
 /* Static function defined in ota.c for processing events. */
 extern void receiveAndProcessOtaEvent( void );
 
@@ -182,15 +179,7 @@ extern bool validateDataBlock( const OtaFileContext_t * pFileContext,
                                uint32_t blockIndex,
                                uint32_t blockSize );
 
-extern DocParseErr_t initDocModel( JsonDocModel_t * pDocModel,
-                                   const JsonDocParam_t * pBodyDef,
-                                   void * contextBaseAddr,
-                                   uint32_t contextSize,
-                                   uint16_t numJobParams );
-
-extern OtaFileContext_t * parseJobDoc( const JsonDocParam_t * pJsonDoc,
-                                       uint16_t numJobParams,
-                                       const char * pJson,
+extern OtaFileContext_t * parseJobDoc( const char * pJson,
                                        uint32_t messageLength,
                                        bool * pUpdateJob );
 
@@ -2769,9 +2758,6 @@ void test_OTA_JobParse_strerror( void )
     status = OtaJobParseErrNonConformingJobDoc;
     str = OTA_JobParse_strerror( status );
     TEST_ASSERT_EQUAL_STRING( "OtaJobParseErrNonConformingJobDoc", str );
-    status = OtaJobParseErrBadModelInitParams;
-    str = OTA_JobParse_strerror( status );
-    TEST_ASSERT_EQUAL_STRING( "OtaJobParseErrBadModelInitParams", str );
     status = OtaJobParseErrNoContextAvailable;
     str = OTA_JobParse_strerror( status );
     TEST_ASSERT_EQUAL_STRING( "OtaJobParseErrNoContextAvailable", str );
@@ -3085,29 +3071,12 @@ void test_OTA_parseJobFailsNullJsonDocument()
     bool updateJob = false;
 
     otaInitDefault();
-    pContext = parseJobDoc( NULL, 0, JOB_DOC_A, strlen( JOB_DOC_A ), &updateJob );
+    pContext = parseJobDoc( JOB_DOC_A, strlen( JOB_DOC_A ), &updateJob );
 
     TEST_ASSERT_NULL( pContext );
     TEST_ASSERT_EQUAL( false, updateJob );
 }
 
-void test_OTA_extractParameterFailInvalidJobDocModel()
-{
-    OtaFileContext_t * pContext;
-    bool updateJob = false;
-    JsonDocParam_t otaCustomJobDocModelParamStructure[ 1 ] =
-    {
-        { OTA_JSON_JOB_ID_KEY, OTA_JOB_PARAM_REQUIRED, *otaAgent.fileContext.pJobName, otaAgent.fileContext.jobNameMaxSize, UINT16_MAX },
-    };
-
-    /* The document structure has an invalid value for ModelParamType_t. */
-
-    otaInitDefault();
-    pContext = parseJobDoc( otaCustomJobDocModelParamStructure, 1, JOB_DOC_A, strlen( JOB_DOC_A ), &updateJob );
-
-    TEST_ASSERT_NULL( pContext );
-    TEST_ASSERT_EQUAL( false, updateJob );
-}
 
 void test_OTA_validateDataBlockInputSize()
 {

@@ -9,7 +9,6 @@
 #include "ota_parse_job_private.h"
 
 
-
 DocParseErr_t otajson_SearchField(const char * pJson,
                                 size_t jsonLength,
                                 const char * key,
