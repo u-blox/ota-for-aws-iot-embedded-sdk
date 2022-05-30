@@ -11,7 +11,7 @@
 
 DocParseErr_t otajson_getFieldValue(const char * pJson,
                                 size_t jsonLength,
-                                const char * key,
+                                const char * pKey,
                                 size_t keyLength,
                                 bool required,
                                 JSONTypes_t expectedType,
@@ -26,7 +26,7 @@ DocParseErr_t otajson_getFieldValue(const char * pJson,
 
     status = JSON_SearchConst(pJson,
         jsonLength,
-        key,
+        pKey,
         keyLength,
         &pValue,
         &valueLength,
@@ -57,18 +57,18 @@ DocParseErr_t otajson_getFieldValue(const char * pJson,
 
 DocParseErr_t otajson_parseFieldObject(const char * pJson,
                                 size_t jsonLength,
-                                const char * key,
+                                const char * pKey,
                                 size_t keyLength,
                                 bool required,
                                 const char ** ppOut,
                                 size_t * pOutLength)
 {
-    return otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONObject, ppOut, pOutLength);
+    return otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONObject, ppOut, pOutLength);
 }
 
 DocParseErr_t otajson_parseFieldStringTerminate(const char * pJson,
                                 size_t jsonLength,
-                                const char * key,
+                                const char * pKey,
                                 size_t keyLength,
                                 bool required,
                                 char * pOut,
@@ -78,7 +78,7 @@ DocParseErr_t otajson_parseFieldStringTerminate(const char * pJson,
     const char * pValue;
     size_t valueLength;
 
-    err = otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
+    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONString, &pValue, &valueLength);
     if (err == DocParseErrNone && pOut != NULL)
     {
         /* The output is expecting a NUL terminated string, so the raw value must be at least one byte smaller. */
@@ -98,7 +98,7 @@ DocParseErr_t otajson_parseFieldStringTerminate(const char * pJson,
 
 DocParseErr_t otajson_parseFieldStringTerminateRealloc(const char * pJson,
                                 size_t jsonLength,
-                                const char * key,
+                                const char * pKey,
                                 size_t keyLength,
                                 bool required,
                                 const OtaMallocInterface_t * pMallocInterface,
@@ -115,7 +115,7 @@ DocParseErr_t otajson_parseFieldStringTerminateRealloc(const char * pJson,
         *ppOut = NULL;
     }
 
-    err = otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
+    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONString, &pValue, &valueLength);
     if (err == DocParseErrNone)
     {
         pOut = pMallocInterface->malloc(valueLength + 1);
@@ -136,7 +136,7 @@ DocParseErr_t otajson_parseFieldStringTerminateRealloc(const char * pJson,
 
 DocParseErr_t otajson_parseFieldStringTerminateMaybeRealloc(const char * pJson,
                                 size_t jsonLength,
-                                const char * key,
+                                const char * pKey,
                                 size_t keyLength,
                                 bool required,
                                 const OtaMallocInterface_t * pMallocInterface,
@@ -148,14 +148,14 @@ DocParseErr_t otajson_parseFieldStringTerminateMaybeRealloc(const char * pJson,
     {
         assert(*ppOut != NULL);
         err = otajson_parseFieldStringTerminate(
-            pJson, jsonLength, key, keyLength, required, *ppOut, outLength);
+            pJson, jsonLength, pKey, keyLength, required, *ppOut, outLength);
     }
     else
     {
         /* An output buffer length of zero means the output string is dynamically
          * allocated on the heap. */
         err = otajson_parseFieldStringTerminateRealloc(
-            pJson, jsonLength, key, keyLength, required, pMallocInterface, ppOut);
+            pJson, jsonLength, pKey, keyLength, required, pMallocInterface, ppOut);
     }
 
     return err;
@@ -198,7 +198,7 @@ DocParseErr_t otajson_uint32FromString(const char * str, size_t strLength, uint3
 
 DocParseErr_t otajson_parseFieldUint32(const char * pJson,
                                 size_t jsonLength,
-                                const char * key,
+                                const char * pKey,
                                 size_t keyLength,
                                 bool required,
                                 uint32_t * out)
@@ -207,7 +207,7 @@ DocParseErr_t otajson_parseFieldUint32(const char * pJson,
     const char * pValue;
     size_t valueLength;
 
-    err = otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONNumber, &pValue, &valueLength);
+    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONNumber, &pValue, &valueLength);
 
     if (err == DocParseErrNone)
     {
@@ -420,7 +420,7 @@ DocParseErr_t otajson_uint32FromStringLikeStrtoul(const char * str, size_t strLe
 
 DocParseErr_t otajson_parseFieldUint32InString(const char * pJson,
                                 size_t jsonLength,
-                                const char * key,
+                                const char * pKey,
                                 size_t keyLength,
                                 bool required,
                                 uint32_t * out)
@@ -429,7 +429,7 @@ DocParseErr_t otajson_parseFieldUint32InString(const char * pJson,
     const char * pValue;
     size_t valueLength;
 
-    err = otajson_getFieldValue(pJson, jsonLength, key, keyLength, required, JSONString, &pValue, &valueLength);
+    err = otajson_getFieldValue(pJson, jsonLength, pKey, keyLength, required, JSONString, &pValue, &valueLength);
 
     if (err == DocParseErrNone)
     {
@@ -445,7 +445,7 @@ DocParseErr_t otajson_parseFieldUint32InString(const char * pJson,
 
 DocParseErr_t otajson_parseFieldSignature(const char * pJson,
                                         size_t jsonLength,
-                                        const char * key,
+                                        const char * pKey,
                                         size_t keyLength,
                                         Sig256_t * pSignature)
 {
@@ -457,7 +457,7 @@ DocParseErr_t otajson_parseFieldSignature(const char * pJson,
 
     /* Note: signatures are always optional. */
     err = otajson_getFieldValue(
-        pJson, jsonLength, key, keyLength, OTA_JOB_PARAM_OPTIONAL, JSONString, &pValue, &valueLength);
+        pJson, jsonLength, pKey, keyLength, OTA_JOB_PARAM_OPTIONAL, JSONString, &pValue, &valueLength);
 
     if (err == DocParseErrNone)
     {
@@ -494,7 +494,7 @@ DocParseErr_t otajson_parseFieldSignature(const char * pJson,
 
 DocParseErr_t otajson_parseFieldProtocols(const char * pJson,
                                         size_t jsonLength,
-                                        const char * key,
+                                        const char * pKey,
                                         size_t keyLength,
                                         bool * pSupportsMqtt,
                                         bool * pSupportsHttp)
@@ -513,7 +513,7 @@ DocParseErr_t otajson_parseFieldProtocols(const char * pJson,
 
     /* Note: the protocol array is always required. */
     err = otajson_getFieldValue(
-        pJson, jsonLength, key, keyLength, OTA_JOB_PARAM_REQUIRED, JSONArray, &pProtocols, &protocolsLength);
+        pJson, jsonLength, pKey, keyLength, OTA_JOB_PARAM_REQUIRED, JSONArray, &pProtocols, &protocolsLength);
 
     if (err == DocParseErrNone)
     {
