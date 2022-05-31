@@ -2310,65 +2310,39 @@ static void handleUnexpectedEvents( const OtaEventMsg_t * pEventMsg )
     }
 }
 
-/*
- * Execute the handler for selected index from the transition table.
- */
-static void executeHandler( uint32_t index,
-                            const OtaEventMsg_t * const pEventMsg )
+
+bool findStateTransitionForEvent( OtaStateTableEntry_t * pTransitionTable,
+                                  uint32_t tableCount,
+                                  OtaState_t currentState,
+                                  OtaEvent_t eventId,
+                                  OtaEventHandler_t * pActionHandler,
+                                  OtaState_t * pNextState)
 {
-    OtaErr_t err = OtaErrNone;
-
-    assert( otaTransitionTable[ index ].handler != NULL );
-
-    err = otaTransitionTable[ index ].handler( pEventMsg->pEventData );
-
-    if( err == OtaErrNone )
+    bool found = false;
+    uint32_t i;
+    for( i = 0; i < tableCount; i++ )
     {
-        LogDebug( ( "Executing handler for state transition: " ) );
-
-        /*
-         * Update the current state in OTA agent context.
-         */
-        otaAgent.state = otaTransitionTable[ index ].nextState;
-    }
-    else
-    {
-        LogDebug( ( "Failed to execute state transition handler: "
-                    "Handler returned error: OtaErr_t=%s",
-                    OTA_Err_strerror( err ) ) );
-    }
-
-    LogInfo( ( "Current State=[%s]"
-               ", Event=[%s]"
-               ", New state=[%s]",
-               pOtaAgentStateStrings[ otaAgent.state ],
-               pOtaEventStrings[ pEventMsg->eventId ],
-               pOtaAgentStateStrings[ otaTransitionTable[ index ].nextState ] ) );
-}
-
-static uint32_t searchTransition( const OtaEventMsg_t * pEventMsg )
-{
-    uint32_t transitionTableLen = ( uint32_t ) ( sizeof( otaTransitionTable ) / sizeof( otaTransitionTable[ 0 ] ) );
-    uint32_t i = 0;
-
-    for( i = 0; i < transitionTableLen; i++ )
-    {
-        if( ( ( otaTransitionTable[ i ].currentState == otaAgent.state ) ||
-              ( otaTransitionTable[ i ].currentState == OtaAgentStateAll ) ) &&
-            ( otaTransitionTable[ i ].eventId == pEventMsg->eventId ) )
+        if( ( ( pTransitionTable[ i ].currentState == currentState ) ||
+              ( pTransitionTable[ i ].currentState == OtaAgentStateAll ) ) &&
+              ( pTransitionTable[ i ].eventId == eventId ) )
         {
-            break;
+            found = true;
+            *pActionHandler = pTransitionTable[ i ].handler;
+            *pNextState = pTransitionTable[ i ].nextState;
         }
     }
 
-    return i;
+    return found;
 }
 
 static void receiveAndProcessOtaEvent( void )
 {
     OtaEventMsg_t eventMsg = { 0 };
-    uint32_t i = 0;
     uint32_t transitionTableLen = ( uint32_t ) ( sizeof( otaTransitionTable ) / sizeof( otaTransitionTable[ 0 ] ) );
+    bool transitionFound;
+    OtaEventHandler_t actionHandler;
+    OtaState_t nextState;
+    OtaErr_t actionErr;
 
     if( otaAgent.pOtaInterface == NULL )
     {
@@ -2384,9 +2358,14 @@ static void receiveAndProcessOtaEvent( void )
             /*
              * Search transition index if available in the table.
              */
-            i = searchTransition( &eventMsg );
+            transitionFound = findStateTransitionForEvent( otaTransitionTable,
+                                                           transitionTableLen,
+                                                           otaAgent.state,
+                                                           eventMsg.eventId,
+                                                           &actionHandler,
+                                                           &nextState );
 
-            if( i < transitionTableLen )
+            if( transitionFound )
             {
                 LogDebug( ( "Found valid event handler for state transition: "
                             "State=[%s], "
@@ -2397,10 +2376,32 @@ static void receiveAndProcessOtaEvent( void )
                 /*
                  * Execute the handler function.
                  */
-                executeHandler( i, &eventMsg );
-            }
+                actionErr = actionHandler(eventMsg.pEventData);
+                if( actionErr == OtaErrNone )
+                {
+                    LogDebug( ( "Executing handler for state transition: " ) );
 
-            if( i == transitionTableLen )
+                    /*
+                     * Update the current state in OTA agent context.
+                     */
+                    otaAgent.state = nextState;
+                }
+                else
+                {
+                    LogDebug( ( "Failed to execute state transition handler: "
+                                "Handler returned error: OtaErr_t=%s",
+                                OTA_Err_strerror( actionErr ) ) );
+                }
+
+                LogInfo( ( "Current State=[%s]"
+                        ", Event=[%s]"
+                        ", New state=[%s]",
+                        pOtaAgentStateStrings[ otaAgent.state ],
+                        pOtaEventStrings[ pEventMsg->eventId ],
+                        pOtaAgentStateStrings[ nextState ] ) );
+
+            }
+            else
             {
                 /*
                  * Handle unexpected events.
