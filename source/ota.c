@@ -365,24 +365,6 @@ static void receiveAndProcessOtaEvent( void );
 static void callOtaCallback( OtaJobEvent_t eEvent,
                              const void * pData );
 
-/* OTA state event handler functions. */
-
-static OtaErr_t startHandler( const OtaEventData_t * pEventData );           /*!< Start timers and initiate request for job document. */
-static OtaErr_t requestJobHandler( const OtaEventData_t * pEventData );      /*!< Initiate a request for a job. */
-static OtaErr_t processJobHandler( const OtaEventData_t * pEventData );      /*!< Update file context from job document. */
-static OtaErr_t inSelfTestHandler( const OtaEventData_t * pEventData );      /*!< Handle self test. */
-static OtaErr_t initFileHandler( const OtaEventData_t * pEventData );        /*!< Initialize and handle file transfer. */
-static OtaErr_t processDataHandler( const OtaEventData_t * pEventData );     /*!< Process incoming data blocks. */
-static OtaErr_t requestDataHandler( const OtaEventData_t * pEventData );     /*!< Request for data blocks. */
-static OtaErr_t shutdownHandler( const OtaEventData_t * pEventData );        /*!< Shutdown OTA and cleanup. */
-static OtaErr_t closeFileHandler( const OtaEventData_t * pEventData );       /*!< Close file opened for download. */
-static OtaErr_t userAbortHandler( const OtaEventData_t * pEventData );       /*!< Handle user interrupt to abort task. */
-static OtaErr_t suspendHandler( const OtaEventData_t * pEventData );         /*!< Handle suspend event for OTA agent. */
-static OtaErr_t resumeHandler( const OtaEventData_t * pEventData );          /*!< Resume from a suspended state. */
-static OtaErr_t jobNotificationHandler( const OtaEventData_t * pEventData ); /*!< Upon receiving a new job document cancel current job if present and initiate new download. */
-static void executeHandler( uint32_t index,
-                            const OtaEventMsg_t * const pEventMsg );         /*!< Execute the handler for selected index from the transition table. */
-
 /**
  * @brief This is THE OTA agent context and initialization state.
  */
@@ -405,32 +387,6 @@ static OtaAgentContext_t otaAgent =
     1                     /* unsubscribe flag */
 };
 
-/**
- * @brief Transition table for the OTA state machine.
- */
-static OtaStateTableEntry_t otaTransitionTable[] =
-{
-    /*STATE ,                              EVENT ,                               ACTION ,               NEXT STATE                         */
-    { OtaAgentStateReady,               OtaAgentEventStart,               startHandler,           OtaAgentStateRequestingJob       },
-    { OtaAgentStateRequestingJob,       OtaAgentEventRequestJobDocument,  requestJobHandler,      OtaAgentStateWaitingForJob       },
-    { OtaAgentStateRequestingJob,       OtaAgentEventRequestTimer,        requestJobHandler,      OtaAgentStateWaitingForJob       },
-    { OtaAgentStateWaitingForJob,       OtaAgentEventReceivedJobDocument, processJobHandler,      OtaAgentStateCreatingFile        },
-    { OtaAgentStateCreatingFile,        OtaAgentEventStartSelfTest,       inSelfTestHandler,      OtaAgentStateWaitingForJob       },
-    { OtaAgentStateCreatingFile,        OtaAgentEventCreateFile,          initFileHandler,        OtaAgentStateRequestingFileBlock },
-    { OtaAgentStateCreatingFile,        OtaAgentEventRequestTimer,        initFileHandler,        OtaAgentStateRequestingFileBlock },
-    { OtaAgentStateRequestingFileBlock, OtaAgentEventRequestFileBlock,    requestDataHandler,     OtaAgentStateWaitingForFileBlock },
-    { OtaAgentStateRequestingFileBlock, OtaAgentEventRequestTimer,        requestDataHandler,     OtaAgentStateWaitingForFileBlock },
-    { OtaAgentStateWaitingForFileBlock, OtaAgentEventReceivedFileBlock,   processDataHandler,     OtaAgentStateWaitingForFileBlock },
-    { OtaAgentStateWaitingForFileBlock, OtaAgentEventRequestTimer,        requestDataHandler,     OtaAgentStateWaitingForFileBlock },
-    { OtaAgentStateWaitingForFileBlock, OtaAgentEventRequestFileBlock,    requestDataHandler,     OtaAgentStateWaitingForFileBlock },
-    { OtaAgentStateWaitingForFileBlock, OtaAgentEventRequestJobDocument,  requestJobHandler,      OtaAgentStateWaitingForJob       },
-    { OtaAgentStateWaitingForFileBlock, OtaAgentEventReceivedJobDocument, jobNotificationHandler, OtaAgentStateRequestingJob       },
-    { OtaAgentStateWaitingForFileBlock, OtaAgentEventCloseFile,           closeFileHandler,       OtaAgentStateWaitingForJob       },
-    { OtaAgentStateSuspended,           OtaAgentEventResume,              resumeHandler,          OtaAgentStateRequestingJob       },
-    { OtaAgentStateAll,                 OtaAgentEventSuspend,             suspendHandler,         OtaAgentStateSuspended           },
-    { OtaAgentStateAll,                 OtaAgentEventUserAbort,           userAbortHandler,       OtaAgentStateWaitingForJob       },
-    { OtaAgentStateAll,                 OtaAgentEventShutdown,            shutdownHandler,        OtaAgentStateStopped             },
-};
 
 /* MISRA rule 2.2 warns about unused variables. These 2 variables are used in log messages, which is
  * disabled when running static analysis. So it's a false positive. */
@@ -625,7 +581,7 @@ static OtaErr_t setImageStateWithReason( OtaImageState_t stateToSet,
     return err;
 }
 
-static OtaErr_t startHandler( const OtaEventData_t * pEventData )
+OtaErr_t startHandler( const OtaEventData_t * pEventData )
 {
     OtaErr_t retVal = OtaErrNone;
     OtaEventMsg_t eventMsg = { 0 };
@@ -652,7 +608,7 @@ static OtaErr_t startHandler( const OtaEventData_t * pEventData )
     return retVal;
 }
 
-static OtaErr_t inSelfTestHandler( const OtaEventData_t * pEventData )
+OtaErr_t inSelfTestHandler( const OtaEventData_t * pEventData )
 {
     OtaErr_t err = OtaErrNone;
 
@@ -694,7 +650,7 @@ static OtaErr_t inSelfTestHandler( const OtaEventData_t * pEventData )
     return err;
 }
 
-static OtaErr_t requestJobHandler( const OtaEventData_t * pEventData )
+OtaErr_t requestJobHandler( const OtaEventData_t * pEventData )
 {
     OtaErr_t retVal = OtaErrUninitialized;
     OtaOsStatus_t osErr = OtaOsSuccess;
@@ -761,7 +717,7 @@ static OtaErr_t requestJobHandler( const OtaEventData_t * pEventData )
     return retVal;
 }
 
-static OtaErr_t processNullFileContext( void )
+OtaErr_t processNullFileContext( void )
 {
     OtaErr_t retVal = OtaErrNone;
     OtaEventMsg_t eventMsg = { 0 };
@@ -789,7 +745,7 @@ static OtaErr_t processNullFileContext( void )
     return retVal;
 }
 
-static OtaErr_t processValidFileContext( void )
+OtaErr_t processValidFileContext( void )
 {
     OtaErr_t retVal = OtaErrNone;
     OtaEventMsg_t eventMsg = { 0 };
@@ -844,7 +800,7 @@ static OtaErr_t processValidFileContext( void )
     return retVal;
 }
 
-static OtaErr_t processJobHandler( const OtaEventData_t * pEventData )
+OtaErr_t processJobHandler( const OtaEventData_t * pEventData )
 {
     OtaErr_t retVal = OtaErrNone;
     OtaFileContext_t * pOtaFileContext = NULL;
@@ -876,7 +832,7 @@ static OtaErr_t processJobHandler( const OtaEventData_t * pEventData )
     return retVal;
 }
 
-static OtaErr_t initFileHandler( const OtaEventData_t * pEventData )
+OtaErr_t initFileHandler( const OtaEventData_t * pEventData )
 {
     OtaErr_t err = OtaErrUninitialized;
     OtaOsStatus_t osErr = OtaOsSuccess;
@@ -947,7 +903,7 @@ static OtaErr_t initFileHandler( const OtaEventData_t * pEventData )
     return err;
 }
 
-static OtaErr_t requestDataHandler( const OtaEventData_t * pEventData )
+OtaErr_t requestDataHandler( const OtaEventData_t * pEventData )
 {
     OtaErr_t err = OtaErrNone;
     OtaOsStatus_t osErr = OtaOsSuccess;
@@ -1007,7 +963,7 @@ static OtaErr_t requestDataHandler( const OtaEventData_t * pEventData )
     return err;
 }
 
-static void dataHandlerCleanup( void )
+void dataHandlerCleanup( void )
 {
     OtaEventMsg_t eventMsg = { 0 };
 
@@ -1026,7 +982,7 @@ static void dataHandlerCleanup( void )
     }
 }
 
-static OtaErr_t processDataHandler( const OtaEventData_t * pEventData )
+OtaErr_t processDataHandler( const OtaEventData_t * pEventData )
 {
     OtaErr_t err = OtaErrNone;
     OtaPalStatus_t closeResult = OTA_PAL_COMBINE_ERR( OtaPalUninitialized, 0 );
@@ -1153,7 +1109,7 @@ static OtaErr_t processDataHandler( const OtaEventData_t * pEventData )
     return err;
 }
 
-static OtaErr_t closeFileHandler( const OtaEventData_t * pEventData )
+OtaErr_t closeFileHandler( const OtaEventData_t * pEventData )
 {
     ( void ) pEventData;
 
@@ -1166,7 +1122,7 @@ static OtaErr_t closeFileHandler( const OtaEventData_t * pEventData )
     return OtaErrNone;
 }
 
-static OtaErr_t userAbortHandler( const OtaEventData_t * pEventData )
+OtaErr_t userAbortHandler( const OtaEventData_t * pEventData )
 {
     OtaErr_t err = OtaErrNone;
 
@@ -1190,7 +1146,7 @@ static OtaErr_t userAbortHandler( const OtaEventData_t * pEventData )
     return err;
 }
 
-static OtaErr_t shutdownHandler( const OtaEventData_t * pEventData )
+OtaErr_t shutdownHandler( const OtaEventData_t * pEventData )
 {
     ( void ) pEventData;
 
@@ -1205,7 +1161,7 @@ static OtaErr_t shutdownHandler( const OtaEventData_t * pEventData )
     return OtaErrNone;
 }
 
-static OtaErr_t suspendHandler( const OtaEventData_t * pEventData )
+OtaErr_t suspendHandler( const OtaEventData_t * pEventData )
 {
     ( void ) pEventData;
 
@@ -1215,7 +1171,7 @@ static OtaErr_t suspendHandler( const OtaEventData_t * pEventData )
     return OtaErrNone;
 }
 
-static OtaErr_t resumeHandler( const OtaEventData_t * pEventData )
+OtaErr_t resumeHandler( const OtaEventData_t * pEventData )
 {
     OtaEventMsg_t eventMsg = { 0 };
 
@@ -1229,7 +1185,7 @@ static OtaErr_t resumeHandler( const OtaEventData_t * pEventData )
     return ( OTA_SignalEvent( &eventMsg ) == true ) ? OtaErrNone : OtaErrSignalEventFailed;
 }
 
-static OtaErr_t jobNotificationHandler( const OtaEventData_t * pEventData )
+OtaErr_t jobNotificationHandler( const OtaEventData_t * pEventData )
 {
     OtaEventMsg_t eventMsg = { 0 };
 
@@ -2294,7 +2250,6 @@ static void handleUnexpectedEvents( const OtaEventMsg_t * pEventMsg )
 static void receiveAndProcessOtaEvent( void )
 {
     OtaEventMsg_t eventMsg = { 0 };
-    uint32_t transitionTableLen = ( uint32_t ) ( sizeof( otaTransitionTable ) / sizeof( otaTransitionTable[ 0 ] ) );
     bool transitionFound;
     OtaEventHandler_t actionHandler;
     OtaState_t nextState;
@@ -2314,12 +2269,10 @@ static void receiveAndProcessOtaEvent( void )
             /*
              * Search transition index if available in the table.
              */
-            transitionFound = findStateTransitionForEvent( otaTransitionTable,
-                                                           transitionTableLen,
-                                                           otaAgent.state,
-                                                           eventMsg.eventId,
-                                                           &actionHandler,
-                                                           &nextState );
+            transitionFound = findStateTransitionForOtaEvent( otaAgent.state,
+                                                              eventMsg.eventId,
+                                                              &actionHandler,
+                                                              &nextState );
 
             if( transitionFound )
             {

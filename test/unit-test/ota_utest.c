@@ -42,6 +42,7 @@
 #include "ota_mqtt_private.h"
 #include "ota_http_private.h"
 #include "ota_interface_private.h"
+#include "ota_state_machine_private.h"
 
 /* test includes. */
 #include "utest_helpers.h"
@@ -3271,3 +3272,82 @@ void test_OTA_jobBufferLargerThanpActiveJobName()
 
     TEST_ASSERT_EQUAL( OtaAgentStateWaitingForJob, OTA_GetState() );
 }
+
+void test_OTA_state_suspendEventAlwaysTransitions()
+{
+    OtaState_t startState;
+    bool foundTransition;
+    OtaEventHandler_t actionHandler;
+    OtaState_t endState;
+
+    for (startState = OtaAgentState_Start; startState < OtaAgentState_Max; startState++)
+    {
+        foundTransition = findStateTransitionForOtaEvent(
+            startState, OtaAgentEventSuspend, &actionHandler, &endState);
+
+        TEST_ASSERT(foundTransition);
+        TEST_ASSERT_EQUAL(suspendHandler, actionHandler);
+        TEST_ASSERT_EQUAL(OtaAgentStateSuspended, endState);
+    }
+}
+
+void test_OTA_state_abortEventAlwaysTransitions()
+{
+    OtaState_t startState;
+    bool foundTransition;
+    OtaEventHandler_t actionHandler;
+    OtaState_t endState;
+
+    for (startState = OtaAgentState_Start; startState < OtaAgentState_Max; startState++)
+    {
+        foundTransition = findStateTransitionForOtaEvent(
+            startState, OtaAgentEventUserAbort, &actionHandler, &endState);
+
+        TEST_ASSERT(foundTransition);
+        TEST_ASSERT_EQUAL(userAbortHandler, actionHandler);
+        TEST_ASSERT_EQUAL(OtaAgentStateWaitingForJob, endState);
+    }
+}
+
+void test_OTA_state_shutdownEventAlwaysTransitions()
+{
+    OtaState_t startState;
+    bool foundTransition;
+    OtaEventHandler_t actionHandler;
+    OtaState_t endState;
+
+    for (startState = OtaAgentState_Start; startState < OtaAgentState_Max; startState++)
+    {
+        foundTransition = findStateTransitionForOtaEvent(
+            startState, OtaAgentEventShutdown, &actionHandler, &endState);
+
+        TEST_ASSERT(foundTransition);
+        TEST_ASSERT_EQUAL(shutdownHandler, actionHandler);
+        TEST_ASSERT_EQUAL(OtaAgentStateStopped, endState);
+    }
+}
+
+void test_OTA_state_transitionsAreClosed()
+{
+    OtaState_t startState;
+    OtaEvent_t eventId;
+    bool foundTransition;
+    OtaEventHandler_t actionHandler;
+    OtaState_t endState;
+
+    for (startState = OtaAgentState_Start; startState < OtaAgentState_Max; startState++)
+    {
+        for (eventId = OtaAgentEventStart; eventId < OtaAgentEventMax; eventId++)
+        {
+            foundTransition = findStateTransitionForOtaEvent(
+                startState, eventId, &actionHandler, &endState);
+
+            if (foundTransition)
+            {
+                TEST_ASSERT_GREATER_OR_EQUAL_INT32(OtaAgentState_Start, endState);
+                TEST_ASSERT_LESS_THAN_INT32(OtaAgentState_Max, endState);
+            }
+        }
+    }
+}
+

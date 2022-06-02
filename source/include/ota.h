@@ -113,7 +113,8 @@ typedef enum OtaErr
  */
 typedef enum OtaState
 {
-    OtaAgentStateNoTransition = -1,
+    OtaAgentState_Start = 0,
+
     OtaAgentStateInit = 0,
     OtaAgentStateReady,
     OtaAgentStateRequestingJob,
@@ -125,7 +126,10 @@ typedef enum OtaState
     OtaAgentStateSuspended,
     OtaAgentStateShuttingDown,
     OtaAgentStateStopped,
-    OtaAgentStateAll
+
+    OtaAgentStateAll,
+
+    OtaAgentState_Max = OtaAgentStateAll
 } OtaState_t;
 
 /**
