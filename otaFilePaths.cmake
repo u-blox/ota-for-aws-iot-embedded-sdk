@@ -13,7 +13,11 @@ set( OTA_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/source/include/ota_private.h"
     "${CMAKE_CURRENT_LIST_DIR}/source/include/ota_interface_private.h"
     "${CMAKE_CURRENT_LIST_DIR}/source/include/ota_base64_private.h"
+    "${CMAKE_CURRENT_LIST_DIR}/source/include/ota_parse_job_private.h"
+    "${CMAKE_CURRENT_LIST_DIR}/source/include/ota_state_machine_private.h"
     "${CMAKE_CURRENT_LIST_DIR}/source/ota.c"
+    "${CMAKE_CURRENT_LIST_DIR}/source/ota_parse_job.c"
+    "${CMAKE_CURRENT_LIST_DIR}/source/ota_state_machine.c"
     "${CMAKE_CURRENT_LIST_DIR}/source/ota_interface.c"
     "${CMAKE_CURRENT_LIST_DIR}/source/ota_base64.c"
 )

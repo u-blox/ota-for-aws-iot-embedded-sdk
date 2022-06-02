@@ -1,3 +1,5 @@
+#ifndef OTA_PARSE_JOB_PRIVATE_H
+#define OTA_PARSE_JOB_PRIVATE_H
 
 #include <stddef.h>
 
@@ -8,3 +10,5 @@ DocParseErr_t parseOtaDocument( const char * pJson,
                                 uint32_t messageLength,
                                 const OtaMallocInterface_t * pMallocInterface,
                                 OtaFileContext_t * pFileContext );
+
+#endif /* OTA_PARSE_JOB_PRIVATE_H */

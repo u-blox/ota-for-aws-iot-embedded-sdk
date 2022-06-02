@@ -26,6 +26,7 @@ list(APPEND real_source_files
     "${MODULE_ROOT_DIR}/source/ota_http.c"
     "${MODULE_ROOT_DIR}/source/ota_cbor.c"
     "${MODULE_ROOT_DIR}/source/ota_parse_job.c"
+    "${MODULE_ROOT_DIR}/source/ota_state_machine.c"
     "${MODULE_ROOT_DIR}/source/portable/os/ota_os_posix.c"
     ${TINYCBOR_SOURCES}
     ${JSON_SOURCES}

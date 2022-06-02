@@ -65,35 +65,15 @@
 /* OTA OS interface. */
 #include "ota_os_interface.h"
 
+/* OTA state machine. */
+#include "ota_state_machine_private.h"
+
 /* Core JSON include */
 #include "core_json.h"
 
 /* Include firmware version struct definition. */
 #include "ota_appversion32.h"
 
-
-/**
- * @brief Offset helper.
- */
-#define U16_OFFSET( type, member )    ( ( uint16_t ) offsetof( type, member ) )
-
-/**
- * @brief OTA event handler definition.
- */
-typedef OtaErr_t ( * OtaEventHandler_t )( const OtaEventData_t * pEventMsg );
-
-/**
- * @ingroup ota_datatypes_structs
- * @brief OTA Agent state table entry.
- * */
-
-typedef struct OtaStateTableEntry
-{
-    OtaState_t currentState;   /**< Current state of the agent. */
-    OtaEvent_t eventId;        /**< Event corresponding to the action. */
-    OtaEventHandler_t handler; /**< Handler to invoke the next action. */
-    OtaState_t nextState;      /**< New state to be triggered*/
-} OtaStateTableEntry_t;
 
 /**
  * @brief OTA control interface.
@@ -2310,30 +2290,6 @@ static void handleUnexpectedEvents( const OtaEventMsg_t * pEventMsg )
     }
 }
 
-
-bool findStateTransitionForEvent( OtaStateTableEntry_t * pTransitionTable,
-                                  uint32_t tableCount,
-                                  OtaState_t currentState,
-                                  OtaEvent_t eventId,
-                                  OtaEventHandler_t * pActionHandler,
-                                  OtaState_t * pNextState)
-{
-    bool found = false;
-    uint32_t i;
-    for( i = 0; i < tableCount; i++ )
-    {
-        if( ( ( pTransitionTable[ i ].currentState == currentState ) ||
-              ( pTransitionTable[ i ].currentState == OtaAgentStateAll ) ) &&
-              ( pTransitionTable[ i ].eventId == eventId ) )
-        {
-            found = true;
-            *pActionHandler = pTransitionTable[ i ].handler;
-            *pNextState = pTransitionTable[ i ].nextState;
-        }
-    }
-
-    return found;
-}
 
 static void receiveAndProcessOtaEvent( void )
 {
