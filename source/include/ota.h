@@ -300,11 +300,8 @@ typedef struct OtaAgentContext
     OtaState_t state;                                      /*!< State of the OTA agent. */
     uint8_t pThingName[ otaconfigMAX_THINGNAME_LEN + 1U ]; /*!< Thing name + zero terminator. */
     OtaFileContext_t fileContext;                          /*!< Static array of OTA file structures. */
-    uint32_t fileIndex;                                    /*!< Index of current file in the array. */
     uint32_t serverFileID;                                 /*!< Variable to store current file ID passed down */
     uint8_t pActiveJobName[ OTA_JOB_ID_MAX_SIZE ];         /*!< The currently active job name. We only allow one at a time. */
-    uint8_t * pClientTokenFromJob;                         /*!< The clientToken field from the latest update job. */
-    uint32_t timestampFromJob;                             /*!< Timestamp received from the latest job document. */
     OtaImageState_t imageState;                            /*!< The current application image state. */
     uint32_t numOfBlocksToReceive;                         /*!< Number of data blocks to receive per data request. */
     OtaAgentStatistics_t statistics;                       /*!< The OTA agent statistics block. */
